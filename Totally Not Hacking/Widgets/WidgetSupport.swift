@@ -52,8 +52,10 @@ func asciiMeter(level: Double, width: Int, head: Character = ">") -> String {
 }
 
 func matrixGlyph(at index: Int, phase: Int) -> String {
-    let glyphs = ["ア", "カ", "サ", "タ", "ナ", "ハ", "マ", "ヤ", "ラ", "ワ", "ン", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
-    return glyphs[(index + phase) % glyphs.count]
+    let glyphs = ["ア", "カ", "サ", "タ", "ナ", "ハ", "マ", "ヤ", "ラ", "ワ", "ン",
+                  "ガ", "ダ", "バ", "パ", "ジ", "ギ", "ビ", "ピ", "ブ", "グ", "ズ",
+                  "ぎ", "ぐ", "げ", "ご", "が", "ぎ", "ぐ", "げ", "ご", "が"]
+    return glyphs[abs(index + phase) % glyphs.count]
 }
 
 extension View {

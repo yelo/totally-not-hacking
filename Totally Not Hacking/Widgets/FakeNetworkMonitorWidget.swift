@@ -36,49 +36,38 @@ private struct FakeNetworkMonitorWidgetView: View {
             let phase = timeline.date.timeIntervalSinceReferenceDate * configuration.pulseSpeed
             let nodes = max(4, configuration.nodeCount)
             let values = waveformValues(count: nodes, phase: phase, seed: 1.2)
+            let lines = networkAsciiLines(values: values, phase: Int(phase))
 
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("NETWORK STATUS")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(theme.accent)
 
-                Canvas { context, size in
-                    let center = CGPoint(x: size.width * 0.5, y: size.height * 0.42)
-                    let radius = min(size.width, size.height) * 0.32
-
-                    for index in 0..<nodes {
-                        let angle = Double(index) / Double(nodes) * .pi * 2 + phase * 0.35
-                        let nodePoint = CGPoint(
-                            x: center.x + cos(angle) * radius,
-                            y: center.y + sin(angle) * radius * 0.72
-                        )
-
-                        var path = Path()
-                        path.move(to: center)
-                        path.addLine(to: nodePoint)
-                        context.stroke(path, with: .color(theme.primary.opacity(0.18)), lineWidth: 1)
-
-                        let nodeRadius = 6 + CGFloat(values[index] * 14)
-                        let nodeColor = values[index] > 0.75 ? theme.accent : theme.primary
-                        context.fill(Path(ellipseIn: CGRect(x: nodePoint.x - nodeRadius, y: nodePoint.y - nodeRadius, width: nodeRadius * 2, height: nodeRadius * 2)), with: .color(nodeColor))
-                    }
-                }
-
-                HStack(alignment: .bottom, spacing: 6) {
-                    ForEach(Array(values.enumerated()), id: \.offset) { index, value in
-                        VStack(spacing: 4) {
-                            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                .fill(value > 0.78 ? theme.accent : theme.primary)
-                                .frame(width: 10, height: max(6, CGFloat(value) * 72))
-                            Text("\(index)")
-                                .font(.system(.caption2, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .bottomLeading)
+                Text(lines.joined(separator: "\n"))
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(theme.primary)
+                    .lineSpacing(2)
             }
         }
+    }
+
+    private func networkAsciiLines(values: [Double], phase: Int) -> [String] {
+        let average = values.reduce(0, +) / Double(max(values.count, 1))
+        var lines = [
+            "ROUTE   STATUS        LOAD",
+            "----------------------------"
+        ]
+
+        for (index, value) in values.enumerated() {
+            let node = String(format: "NODE %02d", index + 1)
+            let link = asciiBar(level: value, width: 12, filled: "#", empty: "-")
+            let burst = String(repeating: "*", count: (phase + index) % 3)
+            lines.append("\(node) \(link) \(Int(value * 100))%\((burst.isEmpty ? "" : " \(burst)"))")
+        }
+
+        lines.append("----------------------------")
+        lines.append("AVG \(asciiMeter(level: average, width: 16)) \(Int(average * 100))%")
+        return lines
     }
 }
 

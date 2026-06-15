@@ -33,32 +33,41 @@ private struct MatrixRainWidgetView: View {
     let theme: DashboardTheme
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 0.05, paused: false)) { timeline in
-            Canvas { context, size in
-                let phase = timeline.date.timeIntervalSinceReferenceDate * configuration.speed
-                let columns = max(8, configuration.columns)
-                let rows = Int(max(18, size.height / 18.0))
-                let columnStep = size.width / CGFloat(columns)
-                let rowStep = size.height / CGFloat(rows)
+        GeometryReader { proxy in
+            TimelineView(.animation(minimumInterval: 0.08, paused: false)) { timeline in
+                let phase = Int(timeline.date.timeIntervalSinceReferenceDate * configuration.speed)
+                let columns = max(configuration.columns, Int(proxy.size.width / 12))
+                let rows = max(18, Int(proxy.size.height / 14))
+                let lines = matrixLines(columns: columns, rows: rows, phase: phase)
 
-                for column in 0..<columns {
-                    let offset = Int(phase * 8) + column * 13
-                    for row in 0..<rows {
-                        let glyphIndex = offset + row * 7
-                        let intensity = 1.0 - (Double(row) / Double(rows))
-                        let yOffset = CGFloat((phase * 60.0).truncatingRemainder(dividingBy: rowStep * CGFloat(rows)))
-                        let x = CGFloat(column) * columnStep + columnStep * 0.5
-                        let y = CGFloat(row) * rowStep - yOffset
-                        context.draw(
-                            Text(glyphStream(for: glyphIndex))
-                                .font(.system(size: max(12, rowStep), weight: .bold, design: .monospaced))
-                                .foregroundStyle(theme.primary.opacity(configuration.brightness * intensity)),
-                            at: CGPoint(x: x, y: y)
-                        )
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
+                        Text(line)
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            .foregroundStyle(index % 2 == 0 ? theme.primary : theme.accent)
                     }
                 }
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+                .background(theme.background.opacity(0.65))
             }
-            .background(theme.background.opacity(0.35))
+        }
+    }
+
+    private func matrixLines(columns: Int, rows: Int, phase: Int) -> [AttributedString] {
+        (0..<rows).map { row in
+            var line = AttributedString()
+            for column in 0..<columns {
+                let glyph = matrixGlyph(at: row * columns + column, phase: phase)
+                let isHead = (row + column + phase) % 11 == 0
+                var piece = AttributedString(glyph)
+                piece.foregroundColor = isHead ? theme.accent : theme.primary
+                line += piece
+
+                var spacer = AttributedString(" ")
+                spacer.foregroundColor = theme.primary
+                line += spacer
+            }
+            return line
         }
     }
 }
@@ -78,4 +87,3 @@ private struct MatrixRainSettingsView: View {
         }
     }
 }
-

@@ -36,38 +36,29 @@ private struct CPUUsageSimulatorWidgetView: View {
             let phase = timeline.date.timeIntervalSinceReferenceDate
             let cores = max(4, configuration.coreCount)
             let values = waveformValues(count: cores, phase: phase * 2.2, seed: 0.8, amplitude: configuration.spikeIntensity)
+            let lines = cpuAsciiLines(values: values)
 
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("CPU LOAD")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(theme.accent)
-                    Spacer()
-                    Text("\(Int((values.max() ?? 0) * 100))%")
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(theme.primary)
-                }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("CPU LOAD")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(theme.accent)
 
-                ForEach(Array(values.enumerated()), id: \.offset) { index, value in
-                    HStack(spacing: 8) {
-                        Text("C\(index)")
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 28, alignment: .leading)
-                        GeometryReader { proxy in
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(theme.surface.opacity(0.8))
-                                .overlay(alignment: .leading) {
-                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                        .fill(value > 0.8 ? theme.accent : theme.primary)
-                                        .frame(width: proxy.size.width * CGFloat(value))
-                                }
-                        }
-                        .frame(height: 14)
-                    }
-                }
+                Text(lines.joined(separator: "\n"))
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(theme.primary)
+                    .lineSpacing(2)
             }
         }
+    }
+
+    private func cpuAsciiLines(values: [Double]) -> [String] {
+        var lines = ["CORE  LOAD"]
+        for (index, value) in values.enumerated() {
+            lines.append("C\(String(format: "%02d", index + 1)) \(asciiBar(level: value, width: 18)) \(Int(value * 100))%")
+        }
+        let average = values.reduce(0, +) / Double(max(values.count, 1))
+        lines.append("AVG \(asciiMeter(level: average, width: 18)) \(Int(average * 100))%")
+        return lines
     }
 }
 

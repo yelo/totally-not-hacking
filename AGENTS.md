@@ -221,3 +221,9 @@ Do not implement:
 * Exploit frameworks
 
 Everything displayed should be simulated.
+
+---
+
+# Commit Messages
+
+Always use Conventional Commits for git commit messages.

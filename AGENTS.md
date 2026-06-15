@@ -227,3 +227,9 @@ Everything displayed should be simulated.
 # Commit Messages
 
 Always use Conventional Commits for git commit messages.
+
+---
+
+# Branch Names
+
+Use conventional branch names such as `feat/...`, `fix/...`, `docs/...`, `chore/...`, or `ci/...`.

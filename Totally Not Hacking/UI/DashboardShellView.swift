@@ -214,16 +214,20 @@ struct FloatingWidgetConnectorOverlay: View {
 
             Canvas { context, size in
                 let orderedWidgets = widgets.sorted { $0.placement.zIndex < $1.placement.zIndex }
-                let centers = orderedWidgets.map { widget -> CGPoint in
-                    let rect = widget.placement.rect(in: size)
-                    return CGPoint(x: rect.midX, y: rect.midY)
+                let frames = orderedWidgets.map { widget -> CGRect in
+                    widget.placement.rect(in: size)
                 }
 
-                guard centers.count > 1 else { return }
+                guard frames.count > 1 else { return }
 
-                for index in 0..<(centers.count - 1) {
-                    let start = centers[index]
-                    let end = centers[index + 1]
+                for index in 0..<(frames.count - 1) {
+                    let startFrame = frames[index]
+                    let endFrame = frames[index + 1]
+                    let startCenter = CGPoint(x: startFrame.midX, y: startFrame.midY)
+                    let endCenter = CGPoint(x: endFrame.midX, y: endFrame.midY)
+                    let start = edgeAnchor(in: startFrame, toward: endCenter)
+                    let end = edgeAnchor(in: endFrame, toward: startCenter)
+
                     var path = Path()
                     path.move(to: start)
                     path.addLine(to: end)
@@ -231,17 +235,23 @@ struct FloatingWidgetConnectorOverlay: View {
                     context.stroke(path, with: .color(theme.glow.opacity(0.20)), lineWidth: 6)
                 }
 
-                for (index, center) in centers.enumerated() {
+                for (index, frame) in frames.enumerated() {
+                    let nextCenter = index < frames.count - 1
+                        ? CGPoint(x: frames[index + 1].midX, y: frames[index + 1].midY)
+                        : (index > 0
+                            ? CGPoint(x: frames[index - 1].midX, y: frames[index - 1].midY)
+                            : CGPoint(x: frame.midX, y: frame.midY))
+                    let node = edgeAnchor(in: frame, toward: nextCenter)
                     let pulse = 5 + CGFloat((sin(phase * 2.0 + Double(index)) + 1) * 2)
                     let glowRadius = pulse * 2.2
                     let nodeColor = index % 2 == 0 ? theme.accent : theme.primary
 
                     context.fill(
-                        Path(ellipseIn: CGRect(x: center.x - glowRadius, y: center.y - glowRadius, width: glowRadius * 2, height: glowRadius * 2)),
+                        Path(ellipseIn: CGRect(x: node.x - glowRadius, y: node.y - glowRadius, width: glowRadius * 2, height: glowRadius * 2)),
                         with: .color(theme.glow.opacity(0.12))
                     )
                     context.fill(
-                        Path(ellipseIn: CGRect(x: center.x - pulse, y: center.y - pulse, width: pulse * 2, height: pulse * 2)),
+                        Path(ellipseIn: CGRect(x: node.x - pulse, y: node.y - pulse, width: pulse * 2, height: pulse * 2)),
                         with: .color(nodeColor)
                     )
                 }
@@ -249,6 +259,26 @@ struct FloatingWidgetConnectorOverlay: View {
             .allowsHitTesting(false)
             .blendMode(.screen)
         }
+    }
+
+    private func edgeAnchor(in rect: CGRect, toward point: CGPoint) -> CGPoint {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let deltaX = point.x - center.x
+        let deltaY = point.y - center.y
+
+        guard deltaX != 0 || deltaY != 0 else { return center }
+
+        let halfWidth = rect.width / 2
+        let halfHeight = rect.height / 2
+
+        let scaleX = deltaX == 0 ? .infinity : halfWidth / abs(deltaX)
+        let scaleY = deltaY == 0 ? .infinity : halfHeight / abs(deltaY)
+        let scale = min(scaleX, scaleY)
+
+        return CGPoint(
+            x: center.x + deltaX * scale,
+            y: center.y + deltaY * scale
+        )
     }
 }
 

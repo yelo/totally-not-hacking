@@ -30,54 +30,66 @@ private struct RadarScreenWidgetView: View {
     var body: some View {
         TimelineView(.animation(minimumInterval: 0.05, paused: false)) { timeline in
             let phase = timeline.date.timeIntervalSinceReferenceDate * configuration.sweepSpeed
-            Canvas { context, size in
-                let radius = min(size.width, size.height) * 0.42
-                let center = CGPoint(x: size.width * 0.5, y: size.height * 0.5)
+            let display = radarAsciiGrid(phase: phase)
 
-                for ring in 1...4 {
-                    let ringRect = CGRect(
-                        x: center.x - radius * CGFloat(ring) / 4,
-                        y: center.y - radius * CGFloat(ring) / 4,
-                        width: radius * 2 * CGFloat(ring) / 4,
-                        height: radius * 2 * CGFloat(ring) / 4
-                    )
-                    context.stroke(Path(ellipseIn: ringRect), with: .color(theme.primary.opacity(0.15)), lineWidth: 1)
-                }
-
-                for angleIndex in 0..<12 {
-                    let angle = Double(angleIndex) / 12.0 * .pi * 2
-                    var path = Path()
-                    path.move(to: center)
-                    path.addLine(to: CGPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius))
-                    context.stroke(path, with: .color(theme.primary.opacity(0.08)), lineWidth: 1)
-                }
-
-                let sweepAngle = phase.truncatingRemainder(dividingBy: 1.0) * .pi * 2
-                let sweepEnd = CGPoint(x: center.x + cos(sweepAngle) * radius, y: center.y + sin(sweepAngle) * radius)
-                var sweep = Path()
-                sweep.move(to: center)
-                sweep.addLine(to: sweepEnd)
-                context.stroke(sweep, with: .color(theme.accent.opacity(0.95)), lineWidth: 2.5)
-
-                let blips = max(4, configuration.blipCount)
-                for index in 0..<blips {
-                    let angle = Double(index) / Double(blips) * .pi * 2 + phase * 0.8
-                    let ring = CGFloat(0.2 + 0.7 * abs(sin(phase * 0.9 + Double(index))))
-                    let point = CGPoint(
-                        x: center.x + cos(angle) * radius * ring,
-                        y: center.y + sin(angle) * radius * ring
-                    )
-                    let pulse = 6 + CGFloat((sin(phase * 3.0 + Double(index)) + 1) * 5)
-                    context.fill(Path(ellipseIn: CGRect(x: point.x - pulse, y: point.y - pulse, width: pulse * 2, height: pulse * 2)), with: .color(theme.primary.opacity(0.8)))
-                }
-            }
-            .overlay(alignment: .topLeading) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text("RADAR")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(theme.accent)
-                    .padding(8)
+
+                Text(display.joined(separator: "\n"))
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(theme.primary)
+                    .lineSpacing(1)
             }
         }
     }
-}
 
+    private func radarAsciiGrid(phase: Double) -> [String] {
+        let size = 17
+        let center = Double(size / 2)
+        let radius = 7.0
+        let sweepAngle = phase.truncatingRemainder(dividingBy: 1.0) * .pi * 2
+        let sweepPoint = CGPoint(
+            x: center + cos(sweepAngle) * radius,
+            y: center + sin(sweepAngle) * radius
+        )
+        let blips = max(4, configuration.blipCount)
+        let blipPoints: [CGPoint] = (0..<blips).map { index in
+            let angle = Double(index) / Double(blips) * .pi * 2 + phase * 0.7
+            let ring = 0.35 + 0.55 * abs(sin(phase * 0.8 + Double(index)))
+            return CGPoint(
+                x: center + cos(angle) * radius * ring,
+                y: center + sin(angle) * radius * ring
+            )
+        }
+
+        return (0..<size).map { row in
+            let characters = (0..<size).map { column -> Character in
+                let dx = Double(column) - center
+                let dy = Double(row) - center
+                let distance = sqrt(dx * dx + dy * dy)
+
+                if abs(Double(column) - sweepPoint.x) < 0.55 && abs(Double(row) - sweepPoint.y) < 0.55 {
+                    return ">"
+                }
+
+                if blipPoints.contains(where: { abs($0.x - Double(column)) < 0.45 && abs($0.y - Double(row)) < 0.45 }) {
+                    return "*"
+                }
+
+                if abs(distance - radius) < 0.35 {
+                    return "o"
+                }
+
+                if column == Int(center) || row == Int(center) {
+                    return "."
+                }
+
+                return " "
+            }
+
+            return characters.map(String.init).joined(separator: " ")
+        }
+    }
+}

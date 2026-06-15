@@ -176,7 +176,14 @@ struct DashboardCanvasView: View {
                         .zIndex(widget.placement.zIndex)
                     }
                 }
+
+                FloatingWidgetConnectorOverlay(
+                    widgets: connectorWidgets,
+                    theme: theme
+                )
+                .zIndex(10_000)
             }
+            .ignoresSafeArea(edges: .top)
         }
     }
 
@@ -186,6 +193,62 @@ struct DashboardCanvasView: View {
 
     private var foregroundWidgets: [DashboardWidgetInstance] {
         store.state.widgets.filter { $0.presentationMode != .background && $0.isVisible }
+    }
+
+    private var connectorWidgets: [DashboardWidgetInstance] {
+        store.state.widgets.filter { widget in
+            guard widget.isVisible, widget.presentationMode != .background else { return false }
+            guard let descriptor = store.descriptor(for: widget.widgetID) else { return false }
+            return descriptor.metadata.category == .telemetry || descriptor.metadata.category == .maps
+        }
+    }
+}
+
+struct FloatingWidgetConnectorOverlay: View {
+    let widgets: [DashboardWidgetInstance]
+    let theme: DashboardTheme
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 0.12, paused: false)) { timeline in
+            let phase = timeline.date.timeIntervalSinceReferenceDate
+
+            Canvas { context, size in
+                let orderedWidgets = widgets.sorted { $0.placement.zIndex < $1.placement.zIndex }
+                let centers = orderedWidgets.map { widget -> CGPoint in
+                    let rect = widget.placement.rect(in: size)
+                    return CGPoint(x: rect.midX, y: rect.midY)
+                }
+
+                guard centers.count > 1 else { return }
+
+                for index in 0..<(centers.count - 1) {
+                    let start = centers[index]
+                    let end = centers[index + 1]
+                    var path = Path()
+                    path.move(to: start)
+                    path.addLine(to: end)
+                    context.stroke(path, with: .color(theme.primary.opacity(0.30)), lineWidth: 2)
+                    context.stroke(path, with: .color(theme.glow.opacity(0.20)), lineWidth: 6)
+                }
+
+                for (index, center) in centers.enumerated() {
+                    let pulse = 5 + CGFloat((sin(phase * 2.0 + Double(index)) + 1) * 2)
+                    let glowRadius = pulse * 2.2
+                    let nodeColor = index % 2 == 0 ? theme.accent : theme.primary
+
+                    context.fill(
+                        Path(ellipseIn: CGRect(x: center.x - glowRadius, y: center.y - glowRadius, width: glowRadius * 2, height: glowRadius * 2)),
+                        with: .color(theme.glow.opacity(0.12))
+                    )
+                    context.fill(
+                        Path(ellipseIn: CGRect(x: center.x - pulse, y: center.y - pulse, width: pulse * 2, height: pulse * 2)),
+                        with: .color(nodeColor)
+                    )
+                }
+            }
+            .allowsHitTesting(false)
+            .blendMode(.screen)
+        }
     }
 }
 

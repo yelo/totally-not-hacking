@@ -59,4 +59,11 @@ struct Totally_Not_HackingTests {
         #expect(store.activeTheme.id == DashboardThemes.classicGreen.id)
     }
 
+    @Test func asciiHelpersProduceExpectedShapes() {
+        #expect(asciiBar(level: 0.5, width: 6) == "[###---]")
+        #expect(asciiMeter(level: 0.5, width: 5) == "..>..")
+        #expect(matrixGlyph(at: 0, phase: 0).count == 1)
+        #expect(["ア", "カ", "サ", "タ", "ナ", "ハ", "マ", "ヤ", "ラ", "ワ", "ン"].contains(matrixGlyph(at: 0, phase: 0)))
+    }
+
 }

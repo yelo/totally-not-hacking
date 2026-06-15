@@ -36,6 +36,26 @@ func glyphStream(for value: Int) -> String {
     return String(glyphs[value % glyphs.count])
 }
 
+func asciiBar(level: Double, width: Int, filled: Character = "#", empty: Character = "-") -> String {
+    let clamped = min(max(level, 0), 1)
+    let filledCount = Int((clamped * Double(width)).rounded())
+    let emptyCount = max(0, width - filledCount)
+    return "[" + String(repeating: String(filled), count: filledCount) + String(repeating: String(empty), count: emptyCount) + "]"
+}
+
+func asciiMeter(level: Double, width: Int, head: Character = ">") -> String {
+    let clamped = min(max(level, 0), 1)
+    let position = min(width - 1, max(0, Int((clamped * Double(width - 1)).rounded())))
+    let left = String(repeating: ".", count: position)
+    let right = String(repeating: ".", count: max(0, width - position - 1))
+    return left + String(head) + right
+}
+
+func matrixGlyph(at index: Int, phase: Int) -> String {
+    let glyphs = ["ア", "カ", "サ", "タ", "ナ", "ハ", "マ", "ヤ", "ラ", "ワ", "ン", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    return glyphs[(index + phase) % glyphs.count]
+}
+
 extension View {
     func glowingText(theme: DashboardTheme) -> some View {
         self
@@ -43,4 +63,3 @@ extension View {
             .shadow(color: theme.glow.opacity(theme.glowIntensity), radius: 8, x: 0, y: 0)
     }
 }
-

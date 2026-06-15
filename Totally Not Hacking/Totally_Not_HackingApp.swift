@@ -6,27 +6,27 @@
 //
 
 import SwiftUI
-import SwiftData
 
 @main
 struct Totally_Not_HackingApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+    @StateObject private var store: DashboardStore
+
+    init() {
+        let registry = WidgetRegistry()
+        DefaultWidgetCatalog.registerAll(into: registry)
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            let persistence = try DashboardPersistence.live()
+            _store = StateObject(wrappedValue: DashboardStore(registry: registry, persistence: persistence))
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            fatalError("Could not create dashboard persistence: \(error)")
         }
-    }()
+    }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(sharedModelContainer)
+        .environmentObject(store)
     }
 }

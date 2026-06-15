@@ -34,40 +34,48 @@ private struct MatrixRainWidgetView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            TimelineView(.animation(minimumInterval: 0.08, paused: false)) { timeline in
-                let phase = Int(timeline.date.timeIntervalSinceReferenceDate * configuration.speed)
-                let columns = max(configuration.columns, Int(proxy.size.width / 12))
-                let rows = max(18, Int(proxy.size.height / 14))
-                let lines = matrixLines(columns: columns, rows: rows, phase: phase)
+            TimelineView(.animation(minimumInterval: 0.05, paused: false)) { timeline in
+                let phase = timeline.date.timeIntervalSinceReferenceDate * configuration.speed
+                let columns = max(configuration.columns, Int(proxy.size.width / 11))
+                let rows = max(20, Int(proxy.size.height / 13))
 
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
-                        Text(line)
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .foregroundStyle(index % 2 == 0 ? theme.primary : theme.accent)
+                Canvas { context, size in
+                    let cellWidth = size.width / CGFloat(columns)
+                    let cellHeight = size.height / CGFloat(rows)
+
+                    for row in 0..<rows {
+                        for column in 0..<columns {
+                            let yOffset = phase.truncatingRemainder(dividingBy: Double(rows))
+                            let adjustedRow = Double(row) - yOffset
+                            let glyphIndex = Int((Double(row) * 31 + Double(column) * 17) % 256)
+                            let glyph = matrixGlyph(at: glyphIndex, phase: Int(phase))
+
+                            let brightness: Double
+                            if adjustedRow > Double(rows) - 3 && adjustedRow < Double(rows) {
+                                brightness = 1.0
+                            } else if adjustedRow > Double(rows) - 8 {
+                                brightness = 0.6 + 0.4 * Double(adjustedRow - (Double(rows) - 8)) / 5
+                            } else {
+                                brightness = 0.35 + sin(phase * 2.0 + Double(column) * 0.5) * 0.1
+                            }
+
+                            let x = CGFloat(column) * cellWidth + cellWidth * 0.5
+                            let y = CGFloat(adjustedRow) * cellHeight + cellHeight * 0.5
+                            let glyphColor = brightness > 0.8 ? theme.accent : theme.primary
+                            let fontSize: CGFloat = brightness > 0.8 ? 13 : 11
+                            let glyphOpacity = brightness * Double(configuration.brightness)
+
+                            context.draw(
+                                Text(glyph)
+                                    .font(.system(size: fontSize, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(glyphColor.opacity(glyphOpacity)),
+                                at: CGPoint(x: x, y: y)
+                            )
+                        }
                     }
                 }
-                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
-                .background(theme.background.opacity(0.65))
+                .background(theme.background.opacity(0.60))
             }
-        }
-    }
-
-    private func matrixLines(columns: Int, rows: Int, phase: Int) -> [AttributedString] {
-        (0..<rows).map { row in
-            var line = AttributedString()
-            for column in 0..<columns {
-                let glyph = matrixGlyph(at: row * columns + column, phase: phase)
-                let isHead = (row + column + phase) % 11 == 0
-                var piece = AttributedString(glyph)
-                piece.foregroundColor = isHead ? theme.accent : theme.primary
-                line += piece
-
-                var spacer = AttributedString(" ")
-                spacer.foregroundColor = theme.primary
-                line += spacer
-            }
-            return line
         }
     }
 }

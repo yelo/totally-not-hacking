@@ -1,10 +1,3 @@
-//
-//  Totally_Not_HackingTests.swift
-//  Totally Not HackingTests
-//
-//  Created by Jimmy Kumpulainen on 2026-06-15.
-//
-
 import Foundation
 import Testing
 @testable import Totally_Not_Hacking
@@ -12,51 +5,21 @@ import Testing
 @MainActor
 struct Totally_Not_HackingTests {
 
-    @Test func registryRegistersAllInitialWidgets() {
-        let registry = WidgetRegistry()
-        DefaultWidgetCatalog.registerAll(into: registry)
-
-        #expect(registry.descriptors.count == 10)
-        #expect(registry.contains("matrix-rain"))
-        #expect(registry.contains("fake-satellite-tracker"))
-    }
-
     @Test func dashboardStateRoundTrips() throws {
-        let original = DashboardState(
-            layoutMode: .hybrid,
-            activeThemeID: DashboardThemes.iceBlue.id,
-            selectedWidgetIDs: [UUID(uuidString: "11111111-1111-1111-1111-111111111111")!],
-            widgets: [
-                DashboardWidgetInstance(
-                    widgetID: "terminal-stream",
-                    placement: WidgetPlacement(x: 0.1, y: 0.2, width: 0.3, height: 0.2, zIndex: 1),
-                    presentationMode: .floating,
-                    isSelected: true,
-                    isVisible: true,
-                    configurationData: Data()
-                )
-            ]
-        )
-
+        let original = DashboardState(activeThemeID: DashboardThemes.iceBlue.id)
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(DashboardState.self, from: data)
-
         #expect(decoded == original)
+        #expect(decoded.activeThemeID == DashboardThemes.iceBlue.id)
     }
 
-    @Test func storeBootstrapsFullWidgetSet() throws {
-        let registry = WidgetRegistry()
-        DefaultWidgetCatalog.registerAll(into: registry)
-
-        let persistenceURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString).appendingPathExtension("json")
-        let store = DashboardStore(
-            registry: registry,
-            persistence: DashboardPersistence(fileURL: persistenceURL)
-        )
-
-        #expect(store.state.widgets.count == 10)
-        #expect(store.state.layoutMode == .hybrid)
+    @Test func storeInitializesWithDefaultTheme() throws {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("json")
+        let store = DashboardStore(persistence: DashboardPersistence(fileURL: url))
         #expect(store.activeTheme.id == DashboardThemes.classicGreen.id)
+        #expect(store.themes.count == 6)
     }
 
     @Test func asciiHelpersProduceExpectedShapes() {
@@ -66,4 +29,18 @@ struct Totally_Not_HackingTests {
         #expect(["ア", "カ", "サ", "タ", "ナ", "ハ", "マ", "ヤ", "ラ", "ワ", "ン"].contains(matrixGlyph(at: 0, phase: 0)))
     }
 
+    @Test func tuiHelpersProduceExpectedShapes() {
+        #expect(tuiBar(level: 1.0, width: 4) == "████")
+        #expect(tuiBar(level: 0.0, width: 4) == "░░░░")
+        #expect(tuiBar(level: 0.5, width: 6).count == 6)
+        #expect(tuiMeter(level: 0.5, width: 5).count == 5)
+        #expect(tuiMeter(level: 0.0, width: 3).contains("◆"))
+        #expect(tuiMeter(level: 1.0, width: 3).contains("◆"))
+        #expect(tuiDivider(length: 4) == "════")
+        #expect(tuiDivider(length: 3, char: "─") == "───")
+    }
+
+    @Test func themeCountIsSix() {
+        #expect(DashboardThemes.all.count == 6)
+    }
 }

@@ -64,4 +64,45 @@ extension View {
             .foregroundStyle(theme.primary)
             .shadow(color: theme.glow.opacity(theme.glowIntensity), radius: 8, x: 0, y: 0)
     }
+
+    /// Subtle 1px CRT text bloom — sharp, not soft.
+    func crtGlow(theme: DashboardTheme) -> some View {
+        self
+            .foregroundStyle(theme.primary)
+            .shadow(color: theme.primary.opacity(0.35), radius: 1, x: 0, y: 0)
+    }
+}
+
+// MARK: - TUI Block-Character Helpers
+
+/// Unicode block-element progress bar: `████░░░░`
+func tuiBar(level: Double, width: Int) -> String {
+    let clamped = min(max(level, 0), 1)
+    let scaled = clamped * Double(width)
+    let fullBlocks = min(Int(scaled), width)
+    let remainder = scaled - Double(fullBlocks)
+    let remainderIndex = min(Int((remainder * 8).rounded()), 7)
+    let partials: [String] = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉"]
+
+    var result = String(repeating: "█", count: fullBlocks)
+    if fullBlocks < width {
+        result += partials[remainderIndex]
+        let used = fullBlocks + (remainderIndex > 0 ? 1 : 0)
+        result += String(repeating: "░", count: width - used)
+    }
+    return result
+}
+
+/// Unicode block-character meter with diamond cursor: `▔▔◆▁▁`
+func tuiMeter(level: Double, width: Int) -> String {
+    let clamped = min(max(level, 0), 1)
+    let position = min(width - 1, max(0, Int((clamped * Double(width - 1)).rounded())))
+    let left = String(repeating: "▔", count: position)
+    let right = String(repeating: "▁", count: max(0, width - position - 1))
+    return left + "◆" + right
+}
+
+/// Repeating box-drawing divider: `══════════`
+func tuiDivider(length: Int, char: Character = "═") -> String {
+    String(repeating: String(char), count: max(length, 1))
 }

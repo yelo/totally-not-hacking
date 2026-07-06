@@ -25,6 +25,9 @@ struct DashboardTheme: Identifiable, Codable, Hashable {
     var glow: Color { Color(hex: palette.glowHex) }
     var glowIntensity: Double { palette.glowIntensity }
 
+    /// CRT scanline opacity derived from glow intensity (0.03–0.06 range).
+    var scanlineIntensity: Double { 0.03 + (palette.glowIntensity * 0.035) }
+
     var headlineFont: Font { .system(.headline, design: .monospaced).weight(.semibold) }
     var bodyFont: Font { .system(.body, design: .monospaced) }
 }
@@ -90,7 +93,37 @@ enum DashboardThemes {
         )
     )
 
-    static let all: [DashboardTheme] = [classicGreen, amberCRT, iceBlue, redAlert]
+    static let phosphorWhite = DashboardTheme(
+        id: "phosphor-white",
+        name: "Phosphor White",
+        palette: .init(
+            primaryHex: "#C0D0B0",
+            secondaryHex: "#8FA880",
+            accentHex: "#E0F0D0",
+            backgroundHex: "#080C06",
+            surfaceHex: "#101A0C",
+            textHex: "#E8F8E0",
+            glowHex: "#D0E0C0",
+            glowIntensity: 0.60
+        )
+    )
+
+    static let cyberpunkNeon = DashboardTheme(
+        id: "cyberpunk-neon",
+        name: "Cyberpunk Neon",
+        palette: .init(
+            primaryHex: "#FF2FA0",
+            secondaryHex: "#5EF0FF",
+            accentHex: "#FFD040",
+            backgroundHex: "#080008",
+            surfaceHex: "#14081A",
+            textHex: "#FFE8F8",
+            glowHex: "#FF40B0",
+            glowIntensity: 0.92
+        )
+    )
+
+    static let all: [DashboardTheme] = [classicGreen, amberCRT, iceBlue, redAlert, phosphorWhite, cyberpunkNeon]
 }
 
 extension Color {

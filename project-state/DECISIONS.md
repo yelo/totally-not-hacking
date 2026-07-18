@@ -10,6 +10,10 @@ Record decisions under the date they were made. If a later decision supersedes a
 - **Track architectural decisions in `project-state/DECISIONS.md`** chronologically by date. New entries supersede old ones without rewriting history.
 - **Keep README.md limited to install/run/usage only.** Remove architecture descriptions, widget listings, and non-goals. Direct agents to `project-state/` for deeper context.
 
+## 2026-07-18 (opencode LSP config)
+
+- **Use `xcrun sourcekit-lsp` as the opencode LSP server for Swift files.** Configured via `opencode.json` with `sourcekit-lsp` key and `swift` extension mapping. The `xcrun` wrapper ensures the correct Xcode toolchain version is used automatically.
+
 ## 2026-07-06 (TUI overhaul with fixed 3-pane layout)
 
 - **Adopt a 4-layer ZStack with 3 fixed panes as the interim dashboard shell.** Layers: (1) MatrixRain background, (2) CRT scanlines with `.drawingGroup()`, (3) backdrop grid, (4) content panes (top terminal 44%, bottom-left pseudo-code, bottom-right doom fire thermal viz). This supersedes the earlier widget-centric architecture described in AGENTS.md — the `NavigationSplitView` shell, `WidgetRegistry`, `DashboardWidget` protocol, and tiled/floating/hybrid layout are deferred.

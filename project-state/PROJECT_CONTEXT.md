@@ -1,98 +1,83 @@
 # Project Context
 
-## Overview
+Updated: 2026-07-18
 
-Totally Not Hacking is a native SwiftUI iPadOS dashboard app that simulates fictional movie-style hacker interfaces. All data is simulated — no real networking, scanning, or intrusion.
+Latest fix: replaced AGENTS.md with a process-oriented workflow format (before/during/finish checklist) and added `project-state/` directory with 4 tracking files (PROJECT_CONTEXT.md, ASSUMPTIONS.md, TODO.md, DECISIONS.md).
 
-## Tech Stack
+Latest fix: merged CLAUDE.md into AGENTS.md for tool-agnostic agent configuration. Single source of truth for all agent tools — includes file-by-file architecture breakdown, build/run instructions, coordinate system, and key constraints.
 
-- **Language:** Swift
-- **UI Framework:** SwiftUI
-- **Minimum Platform:** iPadOS, Xcode 16+
-- **Testing:** Swift Testing framework (`@Test`, `#expect`)
-- **Persistence:** JSON file at `ApplicationSupport/TotallyNotHacking/dashboard-state.json`
-- **Dependencies:** None (pure SwiftUI + Foundation)
+Latest fix: trimmed README.md to install/run/usage only (down from 68 to 24 lines). Removed architecture descriptions, widget listings, and layout mode docs.
 
-## File Map
+Previous fix: complete TUI overhaul — replaced the earlier layout with a fixed 4-layer ZStack (MatrixRain background, CRT scanlines, backdrop grid, 3 content panes).
 
-```
-Totally Not Hacking/
-├── Core/
-│   ├── DashboardModels.swift        — DashboardState struct (Codable, Hashable)
-│   ├── DashboardPersistence.swift   — JSON file read/write
-│   ├── DashboardStore.swift         — @MainActor ObservableObject state manager
-│   └── DashboardTheme.swift         — DashboardTheme + Palette + 6 built-in themes + Color(hex:)
-├── UI/
-│   ├── DashboardShellView.swift     — ContentView → DashboardShellView (4-layer ZStack)
-│   ├── TerminalPanes.swift          — 3 fixed pane views (top terminal, bottom pseudo-code, doom fire)
-│   └── WidgetChromeHelpers.swift    — dashboardPanelStyle view modifier
-├── Widgets/
-│   ├── MatrixRainWidget.swift       — Matrix rain animation with configurable columns/speed/brightness
-│   └── WidgetSupport.swift          — Shared helpers (waveformValues, simulatedLogLine, hexStream, asciiBar, etc.)
-├── Totally_Not_HackingApp.swift     — @main entry point
-├── Assets.xcassets/                 — AccentColor, AppIcon
-```
+## Current State
 
-```
-Totally Not HackingTests/
-└── Totally_Not_HackingTests.swift   — 5 tests (state round-trip, store init, ASCII shapes, TUI shapes, theme count)
-```
-
-```
-Totally Not HackingUITests/
-├── Totally_Not_HackingUITests.swift
-└── Totally_Not_HackingUITestsLaunchTests.swift
-```
-
-## Current Architecture
-
-### App Entry Point
-
-`Totally_Not_HackingApp.swift` creates a `DashboardStore` with `DashboardPersistence.live()`, injects it as an `@EnvironmentObject` into `ContentView`.
+The app is an iPadOS SwiftUI dashboard that simulates movie-style hacker interfaces. All data is purely simulated — no real networking, scanning, or intrusion.
 
 ### Rendering Pipeline
 
 `DashboardShellView` builds a 4-layer ZStack:
 
-1. **Background:** `MatrixRainWidgetView` (full-screen, ignored safe areas, allowsHitTesting false)
-2. **CRT Effect:** `CRTScanlineOverlay` — Canvas-drawn alternating 1px dark lines at 4px spacing, `.drawingGroup()`
-3. **Grid:** `DashboardBackdropGrid` — 12×8 Canvas grid with horizontal accent scanline
-4. **Content:** 3 fixed panes — `TopTerminalPane` (44% height) + `HStack` of `BottomLeftPane` / `BottomRightPane` (54% height)
+1. **Background:** `MatrixRainWidgetView` full-screen animation, `.ignoresSafeArea()`, `.allowsHitTesting(false)`
+2. **CRT effect:** `CRTScanlineOverlay` — Canvas-drawn alternating 1px dark lines at 4px spacing, `.drawingGroup()`
+3. **Grid:** `DashboardBackdropGrid` — 12×8 Canvas grid with horizontal accent scanline at 4–6% opacity
+4. **Content:** 3 fixed panes — `TopTerminalPane` (44% height) + HStack of `BottomLeftPane` / `BottomRightPane` (54% height)
 
-A theme cycle button sits in the top-right corner calling `store.cycleTheme()`.
+A theme cycle button sits top-right calling `store.cycleTheme()`.
 
 ### State Management
 
-- `DashboardStore`: `@MainActor final class`, `ObservableObject`
-- Owns `@Published var state: DashboardState` and `@Published var persistenceMessage: String?`
-- On init, tries `persistence.load()` — falls back to default state
-- `setTheme()` / `cycleTheme()` mutate state and persist
+`DashboardStore`: `@MainActor final class`, `ObservableObject`. Owns `@Published var state: DashboardState` (Codable struct with `activeThemeID: String`) and `@Published var persistenceMessage: String?`. On init, tries `persistence.load()` — falls back to default state with first theme. `setTheme()` / `cycleTheme()` mutate state and persist synchronously.
 
 ### Themes
 
-6 built-in themes (classic-green-terminal, amber-crt, ice-blue, red-alert, phosphor-white, cyberpunk-neon). Each has a `Palette` of 7 hex color tokens + `glowIntensity`. Theme provides `headlineFont` and `bodyFont` (monospaced), and computed `scanlineIntensity`.
+6 themes via `DashboardThemes.all`: classic-green-terminal (default), amber-crt, ice-blue, red-alert, phosphor-white, cyberpunk-neon.
+
+Each has a `Palette` of 7 hex color tokens (`primaryHex`, `secondaryHex`, `accentHex`, `backgroundHex`, `surfaceHex`, `textHex`, `glowHex`) plus `glowIntensity`. Computed `scanlineIntensity = 0.03 + (palette.glowIntensity × 0.035)`. All typography is monospaced (`.system(.headline, design: .monospaced)` / `.system(.body, design: .monospaced)`). Theme `id` is the stable key; views read the active theme from `DashboardStore.activeTheme`.
 
 ### Persistence
 
-`DashboardPersistence` reads/writes `DashboardState` as pretty-printed sorted-key JSON. The `live()` factory creates the `ApplicationSupport/TotallyNotHacking/` directory if needed.
+`DashboardPersistence` reads/writes `DashboardState` as pretty-printed sorted-key JSON to `ApplicationSupport/TotallyNotHacking/dashboard-state.json`. The `live()` factory creates the directory if needed. Writes are synchronous on every mutation (not debounced).
 
 ### Widget System
 
-Currently minimal — only `MatrixRainWidgetView` exists as a standalone view (not protocol-based). `WidgetSupport.swift` provides shared rendering helpers used across the UI.
+Currently minimal — only `MatrixRainWidgetView` exists as a standalone view (no `DashboardWidget` protocol yet, no `WidgetRegistry`, no per-widget subdirectories). `WidgetSupport.swift` provides shared helpers used across the UI:
 
-## Tests
+- ASCII graphics: `asciiBar(level:width:filled:empty:)`, `asciiMeter(level:width:head:)`, `matrixGlyph(at:phase:)`, `tuiBar`, `tuiMeter`, `tuiDivider`
+- Data generation: `waveformValues(count:phase:seed:amplitude:)`, `simulatedLogLine(prefix:index:phase:)`, `hexStream(seed:rows:columns:phase:)`, `glyphStream(for:)`
+- View modifiers: `glowingText(theme:)`, `crtGlow`
 
-5 unit tests using Swift Testing (`#expect` macro):
-- `dashboardStateRoundTrips()` — JSON encode/decode round trip
-- `storeInitializesWithDefaultTheme()` — verifies default theme + 6 themes exist
-- `asciiHelpersProduceExpectedShapes()` — asciiBar, asciiMeter, matrixGlyph
-- `tuiHelpersProduceExpectedShapes()` — tuiBar, tuiMeter, tuiDivider
-- `themeCountIsSix()` — DashboardThemes.all.count == 6
+### Testing
 
-## Key Design Notes
+5 unit tests using Swift Testing (`@Test`, `#expect`):
 
-- No `DashboardWidget` protocol exists yet
-- No `WidgetRegistry` or `DefaultWidgetCatalog` exists
-- No widget subdirectories — all widget code is flat in `Widgets/`
-- The shell uses fixed panes, not `NavigationSplitView`, tiled/floating/hybrid layout, or widget chrome
-- Only MatrixRain is implemented as a widget; 9 others described in docs don't exist yet
+| Test | What it verifies |
+|---|---|
+| `dashboardStateRoundTrips()` | JSON encode/decode round trip preserves `activeThemeID` |
+| `storeInitializesWithDefaultTheme()` | Default theme is classicGreen, `themes.count == 6` |
+| `asciiHelpersProduceExpectedShapes()` | `asciiBar`, `asciiMeter`, `matrixGlyph` return expected strings |
+| `tuiHelpersProduceExpectedShapes()` | `tuiBar`, `tuiMeter`, `tuiDivider` return expected strings |
+| `themeCountIsSix()` | `DashboardThemes.all.count == 6` |
+
+## Structure
+
+- `Totally_Not_HackingApp.swift`: `@main` entry point — creates `DashboardStore` with `DashboardPersistence.live()`, injects as `@EnvironmentObject` into `ContentView`.
+- `Core/DashboardModels.swift`: `DashboardState` (Codable, Hashable) with `activeThemeID`.
+- `Core/DashboardPersistence.swift`: JSON file read/write with `live()` factory.
+- `Core/DashboardStore.swift`: Central `@MainActor ObservableObject` — theme management, cycle, persistence.
+- `Core/DashboardTheme.swift`: `DashboardTheme`, `Palette` (7 color tokens), 6 built-in themes, `Color(hex:)` extension (6-digit and 8-digit hex).
+- `UI/DashboardShellView.swift`: 4-layer ZStack shell, `CRTScanlineOverlay`, `DashboardBackdropGrid`, theme cycle button.
+- `UI/TerminalPanes.swift`: `TopTerminalPane`, `BottomLeftPane`, `BottomRightPane` with load averages, pseudo-code stream, doom fire thermal viz.
+- `UI/WidgetChromeHelpers.swift`: `dashboardPanelStyle` view modifier for consistent inner panel styling.
+- `Widgets/MatrixRainWidget.swift`: Matrix rain animation — configurable columns/speed/brightness, `TimelineView(.animation(minimumInterval: 0.05))`, `Canvas`.
+- `Widgets/WidgetSupport.swift`: Shared ASCII/CRT rendering helpers and view modifiers.
+- `Totally_Not_HackingTests/Totally_Not_HackingTests.swift`: 5 Swift Testing tests.
+- `Totally_Not_HackingUITests/Totally_Not_HackingUITests.swift`: XCTest launch test template.
+- `Totally_Not_HackingUITests/Totally_Not_HackingUITestsLaunchTests.swift`: XCTest launch screenshot test.
+- `AGENTS.md`: Agent operating instructions with before/during/finish workflow.
+- `project-state/`: Project context, assumptions, todo, decisions.
+- `README.md`: Install/run/usage only.
+- `Totally Not Hacking.xcodeproj`: Xcode project (no Package.swift or CLI tooling).
+- `.agents/skills/`: Reusable agent skills (conventional-commits, swiftui, swiftui-review).
+- `.github/workflows/release-please.yml`: CI — Release Please on push to `main`.
+- `.github/CODEOWNERS`: `@yelo` owns all files.

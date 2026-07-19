@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - Content View
-
 struct ContentView: View {
     @EnvironmentObject private var store: DashboardStore
 
@@ -9,8 +7,6 @@ struct ContentView: View {
         DashboardShellView(store: store)
     }
 }
-
-// MARK: - Dashboard Shell
 
 struct DashboardShellView: View {
     @ObservedObject var store: DashboardStore
@@ -21,21 +17,18 @@ struct DashboardShellView: View {
             let size = proxy.size
 
             ZStack(alignment: .topTrailing) {
-                // Layer 1: Matrix rain background (full screen)
                 MatrixRainWidgetView(
-                    configuration: MatrixRainConfiguration(speed: 0.9, brightness: 0.70),
+                    configuration: MatrixRainConfiguration(speed: 1.2, brightness: 0.75),
                     theme: theme
                 )
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
-                // Layer 2: CRT scanline overlay
                 CRTScanlineOverlay(theme: theme, opacity: theme.scanlineIntensity)
-
-                // Layer 3: Subtle backdrop grid
                 DashboardBackdropGrid(theme: theme)
+                EdgeVignetteOverlay(theme: theme)
+                ChromaticEdgeFringe(theme: theme)
 
-                // Layer 4: Fixed 3-pane tiled layout
                 VStack(spacing: 0) {
                     TopTerminalPane(theme: theme)
                         .frame(height: size.height * 0.44)
@@ -51,20 +44,25 @@ struct DashboardShellView: View {
                     .padding(.bottom, 8)
                 }
 
-                // Theme cycle button (top-right corner)
                 Button {
                     store.cycleTheme()
                 } label: {
-                    Text("[ \(store.activeTheme.name.uppercased()) ]")
-                        .font(.system(.caption2, design: .monospaced).weight(.bold))
-                        .foregroundStyle(theme.accent)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(theme.surface.opacity(0.80))
-                        .overlay(
-                            Rectangle()
-                                .strokeBorder(theme.primary.opacity(0.25), lineWidth: 1)
-                        )
+                    HStack(spacing: 3) {
+                        Text("◀")
+                            .foregroundStyle(theme.secondary.opacity(0.7))
+                        Text(store.activeTheme.name.uppercased())
+                            .font(.system(.caption2, design: .monospaced).weight(.regular))
+                            .foregroundStyle(theme.accent)
+                        Text("▶")
+                            .foregroundStyle(theme.secondary.opacity(0.7))
+                    }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(theme.surface.opacity(0.65))
+                    .overlay(
+                        Rectangle()
+                            .strokeBorder(theme.primary.opacity(0.30), lineWidth: 1)
+                    )
                 }
                 .buttonStyle(.plain)
                 .padding(.trailing, 16)
@@ -75,31 +73,82 @@ struct DashboardShellView: View {
     }
 }
 
-// MARK: - CRT Scanline Overlay
-
-/// Full-canvas CRT scanline effect — alternating 1px dark lines at 4px spacing.
-/// All lines are batched into a single Path for one GPU draw call.
 private struct CRTScanlineOverlay: View {
     let theme: DashboardTheme
     let opacity: Double
 
     var body: some View {
-        Canvas { context, size in
-            let color = theme.background.opacity(opacity)
-            var lines = Path()
-            var y: CGFloat = 0
-            while y < size.height {
-                lines.addRect(CGRect(x: 0, y: y, width: size.width, height: 1))
-                y += 4
+        TimelineView(.animation(minimumInterval: 0.08, paused: false)) { timeline in
+            let jitter = sin(timeline.date.timeIntervalSinceReferenceDate * 0.7) * 0.4
+
+            Canvas { context, size in
+                let color = theme.background.opacity(opacity)
+                var lines = Path()
+                var y: CGFloat = 0
+                var row = 0
+                while y < size.height {
+                    let height: CGFloat = row % 2 == 0 ? 2 : 1
+                    let offsetX = row % 4 == 0 ? jitter : -jitter * 0.6
+                    lines.addRect(CGRect(x: offsetX, y: y, width: size.width, height: height))
+                    y += 2
+                    row += 1
+                }
+                context.fill(lines, with: .color(color))
             }
-            context.fill(lines, with: .color(color))
         }
         .allowsHitTesting(false)
         .drawingGroup()
     }
 }
 
-// MARK: - Dashboard Backdrop Grid
+private struct EdgeVignetteOverlay: View {
+    let theme: DashboardTheme
+
+    var body: some View {
+        GeometryReader { proxy in
+            let size = proxy.size
+            RadialGradient(
+                gradient: Gradient(stops: [
+                    .init(color: .clear, location: 0.65),
+                    .init(color: theme.background.opacity(0.08), location: 0.85),
+                    .init(color: theme.background.opacity(0.20), location: 1.0),
+                ]),
+                center: .center,
+                startRadius: min(size.width, size.height) * 0.35,
+                endRadius: max(size.width, size.height) * 0.75
+            )
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+private struct ChromaticEdgeFringe: View {
+    let theme: DashboardTheme
+
+    var body: some View {
+        GeometryReader { proxy in
+            let h = proxy.size.height
+            let w = proxy.size.width
+
+            ZStack {
+                Rectangle()
+                    .fill(.red)
+                    .frame(height: 2)
+                    .offset(y: -h / 2 + 1)
+                    .opacity(0.04)
+                    .blendMode(.screen)
+                Rectangle()
+                    .fill(.blue)
+                    .frame(height: 2)
+                    .offset(y: h / 2 - 1)
+                    .opacity(0.04)
+                    .blendMode(.screen)
+            }
+            .frame(width: w, height: h)
+        }
+        .allowsHitTesting(false)
+    }
+}
 
 struct DashboardBackdropGrid: View {
     let theme: DashboardTheme

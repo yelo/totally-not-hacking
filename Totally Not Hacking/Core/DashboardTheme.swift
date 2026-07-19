@@ -25,8 +25,8 @@ struct DashboardTheme: Identifiable, Codable, Hashable {
     var glow: Color { Color(hex: palette.glowHex) }
     var glowIntensity: Double { palette.glowIntensity }
 
-    /// CRT scanline opacity derived from glow intensity (0.03–0.06 range).
-    var scanlineIntensity: Double { 0.03 + (palette.glowIntensity * 0.035) }
+    /// CRT scanline opacity derived from glow intensity (0.045–0.085 range).
+    var scanlineIntensity: Double { 0.045 + (palette.glowIntensity * 0.040) }
 
     var headlineFont: Font { .system(.headline, design: .monospaced).weight(.semibold) }
     var bodyFont: Font { .system(.body, design: .monospaced) }
@@ -37,14 +37,14 @@ enum DashboardThemes {
         id: "classic-green-terminal",
         name: "Classic Green Terminal",
         palette: .init(
-            primaryHex: "#6BFF8A",
-            secondaryHex: "#9AFFB0",
-            accentHex: "#C8FFD4",
-            backgroundHex: "#050C08",
-            surfaceHex: "#0C1A12",
+            primaryHex: "#4AF626",
+            secondaryHex: "#88F866",
+            accentHex: "#BFFB9E",
+            backgroundHex: "#040A06",
+            surfaceHex: "#0A180E",
             textHex: "#D7FFE0",
-            glowHex: "#72FF9B",
-            glowIntensity: 0.85
+            glowHex: "#55FF33",
+            glowIntensity: 0.88
         )
     )
 
@@ -52,14 +52,14 @@ enum DashboardThemes {
         id: "amber-crt",
         name: "Amber CRT",
         palette: .init(
-            primaryHex: "#FFB347",
-            secondaryHex: "#FFD18A",
-            accentHex: "#FFE4B8",
-            backgroundHex: "#120B04",
-            surfaceHex: "#221404",
+            primaryHex: "#FF9F00",
+            secondaryHex: "#FFBF40",
+            accentHex: "#FFDB80",
+            backgroundHex: "#0E0802",
+            surfaceHex: "#1D1204",
             textHex: "#FFE8C6",
-            glowHex: "#FFB74D",
-            glowIntensity: 0.75
+            glowHex: "#FFA800",
+            glowIntensity: 0.78
         )
     )
 

@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - Configuration
-
 struct MatrixRainConfiguration: Codable, Hashable {
     var columns: Int = 22
     var speed: Double = 1.0
@@ -18,8 +16,6 @@ extension MatrixRainConfiguration {
     static let `default` = MatrixRainConfiguration()
 }
 
-// MARK: - View
-
 struct MatrixRainWidgetView: View {
     let configuration: MatrixRainConfiguration
     let theme: DashboardTheme
@@ -28,59 +24,55 @@ struct MatrixRainWidgetView: View {
         GeometryReader { proxy in
             TimelineView(.animation(minimumInterval: 0.04, paused: false)) { timeline in
                 let phase = timeline.date.timeIntervalSinceReferenceDate * configuration.speed
-                let columns = max(configuration.columns, Int(proxy.size.width / 12))
+                let columns = max(configuration.columns, Int(proxy.size.width / 8))
                 let rows = max(30, Int(proxy.size.height / 14))
 
                 Canvas { context, size in
                     let cellWidth = size.width / CGFloat(columns)
                     let cellHeight = size.height / CGFloat(rows)
-                    let headFont = Font.system(size: 14, weight: .bold, design: .monospaced)
-                    let tailFont = Font.system(size: 12, weight: .bold, design: .monospaced)
-                    let dimFont = Font.system(size: 10, weight: .regular, design: .monospaced)
-
-                    let totalSpan = Double(rows) + 20
+                    let headFont = Font.system(size: 13, weight: .regular, design: .monospaced)
+                    let trailFont = Font.system(size: 10, weight: .regular, design: .monospaced)
+                    let totalSpan = Double(rows) + 24
 
                     for column in 0..<columns {
                         let colSeed = Double(column) * 127.1 + Double(column) * Double(column) * 11.3
-                        let hasStream = colSeed.truncatingRemainder(dividingBy: 10) > 3
+                        let hasStream = colSeed.truncatingRemainder(dividingBy: 10) > 1.5
 
-                        let speedVariation = 0.75 + abs(colSeed.truncatingRemainder(dividingBy: 0.5))
-                        let colPhase = phase * speedVariation
+                        let speedVariation = 0.5 + abs(colSeed.truncatingRemainder(dividingBy: 1.0))
+                        let colPhase = phase * speedVariation * 1.2
                         let startOffset = colSeed.truncatingRemainder(dividingBy: totalSpan)
                         let rawHead = (colPhase + abs(startOffset)).truncatingRemainder(dividingBy: totalSpan)
                         let head = rawHead < 0 ? rawHead + totalSpan : rawHead
-                        let tailLen = 10 + Int(abs(colSeed.truncatingRemainder(dividingBy: 12)))
+                        let tailLen = 8 + Int(abs(colSeed.truncatingRemainder(dividingBy: 16)))
 
                         if hasStream {
+                            let wobbleX = sin(phase * 19.7 + colSeed * 3.1) * 0.4
+                            let headBrightness = 0.90 + abs(sin(colPhase * 2.7)) * 0.10
+
                             for t in 0...tailLen {
                                 let rawPos = head - Double(t)
                                 let wrappedPos = rawPos.truncatingRemainder(dividingBy: Double(rows))
                                 let screenPos = wrappedPos < 0 ? wrappedPos + Double(rows) : wrappedPos
                                 guard screenPos >= 0, screenPos < Double(rows) else { continue }
 
-                                let brightness: Double
-                                let glyph: String
+                                let glyph = matrixGlyph(at: column * 3 + t * 7 + Int(phase * 13), phase: Int(colPhase + Double(t)))
+                                var brightness: Double
+                                let font: Font
+
                                 if t == 0 {
-                                    brightness = 1.0
-                                    glyph = matrixGlyph(at: column * 3 + Int(phase * 7), phase: Int(colPhase))
-                                } else if t <= 2 {
-                                    brightness = 0.75
-                                    glyph = matrixGlyph(at: column * 7 + t * 13 + Int(phase * 5), phase: Int(colPhase + Double(t)))
-                                } else if t <= 6 {
-                                    let fade = Double(t - 2) / 5
-                                    brightness = 0.75 - fade * 0.40
-                                    glyph = matrixGlyph(at: column * 11 + t * 17 + Int(phase * 3), phase: Int(colPhase + Double(t)))
+                                    brightness = headBrightness
+                                    font = headFont
                                 } else {
-                                    let fade = Double(t - 6) / Double(tailLen - 6)
-                                    brightness = 0.35 - fade * 0.27
-                                    glyph = matrixGlyph(at: column * 13 + t * 19 + Int(phase), phase: Int(colPhase + Double(t)))
+                                    let fraction = Double(t) / Double(tailLen)
+                                    brightness = (1.0 - fraction * fraction) * headBrightness
+                                    brightness = max(brightness, 0.04)
+                                    font = trailFont
                                 }
 
-                                let x = CGFloat(column) * cellWidth + cellWidth * 0.5
+                                let x = CGFloat(column) * cellWidth + cellWidth * 0.5 + (t == 0 ? wobbleX : 0)
                                 let y = CGFloat(screenPos) * cellHeight + cellHeight * 0.5
                                 let opacity = brightness * Double(configuration.brightness)
-                                let color = t <= 2 ? theme.accent.opacity(opacity) : theme.primary.opacity(opacity)
-                                let font = t == 0 ? headFont : (t <= 6 ? tailFont : dimFont)
+                                let color = theme.primary.opacity(opacity)
 
                                 context.draw(
                                     Text(glyph).font(font).foregroundStyle(color),
@@ -88,21 +80,22 @@ struct MatrixRainWidgetView: View {
                                 )
                             }
                         } else {
-                            let flickerChance = abs(colSeed.truncatingRemainder(dividingBy: 1))
-                            if flickerChance > 0.82 {
-                                let rng = Int(abs(colSeed + phase * 97)) % rows
+                            let flickerVal = abs(sin(colSeed * 73.1 + phase * 37.3))
+                            if flickerVal > 0.88 {
+                                let rng = Int(abs(colSeed + phase * 113)) % rows
                                 let glyph = matrixGlyph(at: column * 19 + Int(phase * 11), phase: Int(phase))
                                 let x = CGFloat(column) * cellWidth + cellWidth * 0.5
                                 let y = CGFloat(rng) * cellHeight + cellHeight * 0.5
+                                let flickerBrightness = 0.12 + abs(sin(phase * 47.1 + colSeed * 19.3)) * 0.10
                                 context.draw(
-                                    Text(glyph).font(dimFont).foregroundStyle(theme.primary.opacity(0.18 * configuration.brightness)),
+                                    Text(glyph).font(trailFont).foregroundStyle(theme.primary.opacity(flickerBrightness * Double(configuration.brightness))),
                                     at: CGPoint(x: x, y: y)
                                 )
                             }
                         }
                     }
                 }
-                .background(theme.background.opacity(0.70))
+                .background(theme.background.opacity(0.85))
             }
         }
     }

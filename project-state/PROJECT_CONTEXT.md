@@ -2,6 +2,8 @@
 
 Updated: 2026-07-18
 
+Latest fix: added opencode.json with sourcekit-lsp LSP configuration for Swift files.
+
 Latest fix: replaced AGENTS.md with a process-oriented workflow format (before/during/finish checklist) and added `project-state/` directory with 4 tracking files (PROJECT_CONTEXT.md, ASSUMPTIONS.md, TODO.md, DECISIONS.md).
 
 Latest fix: merged CLAUDE.md into AGENTS.md for tool-agnostic agent configuration. Single source of truth for all agent tools — includes file-by-file architecture breakdown, build/run instructions, coordinate system, and key constraints.
@@ -74,6 +76,7 @@ Currently minimal — only `MatrixRainWidgetView` exists as a standalone view (n
 - `Totally_Not_HackingTests/Totally_Not_HackingTests.swift`: 5 Swift Testing tests.
 - `Totally_Not_HackingUITests/Totally_Not_HackingUITests.swift`: XCTest launch test template.
 - `Totally_Not_HackingUITests/Totally_Not_HackingUITestsLaunchTests.swift`: XCTest launch screenshot test.
+- `opencode.json`: opencode configuration — enables sourcekit-lsp LSP for `.swift` files.
 - `AGENTS.md`: Agent operating instructions with before/during/finish workflow.
 - `project-state/`: Project context, assumptions, todo, decisions.
 - `README.md`: Install/run/usage only.

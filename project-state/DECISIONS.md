@@ -2,6 +2,16 @@
 
 Record decisions under the date they were made. If a later decision supersedes an earlier one, add the newer entry under its own date rather than editing history in place.
 
+## 2026-07-20 (performance optimization round)
+
+- **Precompute `Color` values in `Palette` as stored properties.** Colors are computed once on init via `hexToColor()`, stored alongside hex strings. Custom `Codable` only encodes/decodes hex strings; custom `Hashable`/`Equatable` compare hex values only. Eliminates per-access `Scanner` allocations that occurred on every computed color property read during rendering.
+- **Use flat `[Double]` buffer for Doom Fire instead of `[[Double]]` 2D array.** Single allocation with manual index math (`row * cols + col`). Goes from 46 array allocations per frame at 20fps to 0.
+- **Add `.drawingGroup()` to MatrixRain `Canvas`.** Matches the pattern already applied to CRT scanline overlay and backdrop grid, reducing compositing cost for ~1,600 glyph draws per frame.
+- **Replace `String(format:)` with string interpolation in hot rendering loops.** `chatterLines()` (12 lines, every 0.12s), `codeLine()` (60 lines, every 0.12s), and `statusLines()` now use native Swift string interpolation and custom zero-padding helpers (`pad2`, `pad2Hex`) instead of `NSString`-backed `String(format:)`. Eliminates ~720 format calls/sec.
+- **Debounce persistence writes with 0.3s delay.** `DashboardStore` uses a cancellable `Task` with `Task.sleep` instead of synchronous writes on every mutation. Rapid theme cycling coalesces into a single write.
+- **Guard scroll-to-bottom on actual phase change.** `BottomLeftPane` now only calls `scrollProxy.scrollTo(59)` when `oldPhase != newPhase`, avoiding wasted layout passes.
+- **Remove dead code from `WidgetSupport.swift` and `WidgetChromeHelpers.swift`.** Removed `waveformValues`, `simulatedLogLine`, `hexStream`, `glyphStream`, and `dashboardPanelStyle` modifier — none were called by any view. Kept `asciiBar`/`asciiMeter` as they are exercised by tests.
+
 ## 2026-07-18 (project-state agent workflow)
 
 - **Replace AGENTS.md with a process-oriented workflow format.** Before/during/finish checklist referencing `project-state/` files. All agent tools read the same file — no more Claude-specific vs generic split.

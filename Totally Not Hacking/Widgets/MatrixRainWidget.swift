@@ -96,6 +96,7 @@ struct MatrixRainWidgetView: View {
                     }
                 }
                 .background(theme.background.opacity(0.85))
+                .drawingGroup()
             }
         }
     }

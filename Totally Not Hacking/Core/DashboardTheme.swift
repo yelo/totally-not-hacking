@@ -10,22 +10,106 @@ struct DashboardTheme: Identifiable, Codable, Hashable {
         var textHex: String
         var glowHex: String
         var glowIntensity: Double
+
+        var primary: Color = .clear
+        var secondary: Color = .clear
+        var accent: Color = .clear
+        var background: Color = .clear
+        var surface: Color = .clear
+        var text: Color = .clear
+        var glow: Color = .clear
+
+        init(primaryHex: String, secondaryHex: String, accentHex: String, backgroundHex: String,
+             surfaceHex: String, textHex: String, glowHex: String, glowIntensity: Double) {
+            self.primaryHex = primaryHex
+            self.secondaryHex = secondaryHex
+            self.accentHex = accentHex
+            self.backgroundHex = backgroundHex
+            self.surfaceHex = surfaceHex
+            self.textHex = textHex
+            self.glowHex = glowHex
+            self.glowIntensity = glowIntensity
+            self.primary = hexToColor(primaryHex)
+            self.secondary = hexToColor(secondaryHex)
+            self.accent = hexToColor(accentHex)
+            self.background = hexToColor(backgroundHex)
+            self.surface = hexToColor(surfaceHex)
+            self.text = hexToColor(textHex)
+            self.glow = hexToColor(glowHex)
+        }
+
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(primaryHex)
+            hasher.combine(secondaryHex)
+            hasher.combine(accentHex)
+            hasher.combine(backgroundHex)
+            hasher.combine(surfaceHex)
+            hasher.combine(textHex)
+            hasher.combine(glowHex)
+            hasher.combine(glowIntensity)
+        }
+
+        static func == (lhs: Palette, rhs: Palette) -> Bool {
+            lhs.primaryHex == rhs.primaryHex
+                && lhs.secondaryHex == rhs.secondaryHex
+                && lhs.accentHex == rhs.accentHex
+                && lhs.backgroundHex == rhs.backgroundHex
+                && lhs.surfaceHex == rhs.surfaceHex
+                && lhs.textHex == rhs.textHex
+                && lhs.glowHex == rhs.glowHex
+                && lhs.glowIntensity == rhs.glowIntensity
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case primaryHex, secondaryHex, accentHex, backgroundHex
+            case surfaceHex, textHex, glowHex, glowIntensity
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            primaryHex = try container.decode(String.self, forKey: .primaryHex)
+            secondaryHex = try container.decode(String.self, forKey: .secondaryHex)
+            accentHex = try container.decode(String.self, forKey: .accentHex)
+            backgroundHex = try container.decode(String.self, forKey: .backgroundHex)
+            surfaceHex = try container.decode(String.self, forKey: .surfaceHex)
+            textHex = try container.decode(String.self, forKey: .textHex)
+            glowHex = try container.decode(String.self, forKey: .glowHex)
+            glowIntensity = try container.decode(Double.self, forKey: .glowIntensity)
+            primary = hexToColor(primaryHex)
+            secondary = hexToColor(secondaryHex)
+            accent = hexToColor(accentHex)
+            background = hexToColor(backgroundHex)
+            surface = hexToColor(surfaceHex)
+            text = hexToColor(textHex)
+            glow = hexToColor(glowHex)
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(primaryHex, forKey: .primaryHex)
+            try container.encode(secondaryHex, forKey: .secondaryHex)
+            try container.encode(accentHex, forKey: .accentHex)
+            try container.encode(backgroundHex, forKey: .backgroundHex)
+            try container.encode(surfaceHex, forKey: .surfaceHex)
+            try container.encode(textHex, forKey: .textHex)
+            try container.encode(glowHex, forKey: .glowHex)
+            try container.encode(glowIntensity, forKey: .glowIntensity)
+        }
     }
 
     var id: String
     var name: String
     var palette: Palette
 
-    var primary: Color { Color(hex: palette.primaryHex) }
-    var secondary: Color { Color(hex: palette.secondaryHex) }
-    var accent: Color { Color(hex: palette.accentHex) }
-    var background: Color { Color(hex: palette.backgroundHex) }
-    var surface: Color { Color(hex: palette.surfaceHex) }
-    var text: Color { Color(hex: palette.textHex) }
-    var glow: Color { Color(hex: palette.glowHex) }
+    var primary: Color { palette.primary }
+    var secondary: Color { palette.secondary }
+    var accent: Color { palette.accent }
+    var background: Color { palette.background }
+    var surface: Color { palette.surface }
+    var text: Color { palette.text }
+    var glow: Color { palette.glow }
     var glowIntensity: Double { palette.glowIntensity }
 
-    /// CRT scanline opacity derived from glow intensity (0.045–0.085 range).
     var scanlineIntensity: Double { 0.045 + (palette.glowIntensity * 0.040) }
 
     var headlineFont: Font { .system(.headline, design: .monospaced).weight(.semibold) }
@@ -126,32 +210,30 @@ enum DashboardThemes {
     static let all: [DashboardTheme] = [classicGreen, amberCRT, iceBlue, redAlert, phosphorWhite, cyberpunkNeon]
 }
 
-extension Color {
-    init(hex: String) {
-        let sanitized = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var value: UInt64 = 0
-        Scanner(string: sanitized).scanHexInt64(&value)
+private func hexToColor(_ hex: String) -> Color {
+    let sanitized = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+    var value: UInt64 = 0
+    Scanner(string: sanitized).scanHexInt64(&value)
 
-        let r, g, b, a: Double
-        switch sanitized.count {
-        case 6:
-            r = Double((value >> 16) & 0xFF) / 255.0
-            g = Double((value >> 8) & 0xFF) / 255.0
-            b = Double(value & 0xFF) / 255.0
-            a = 1.0
-        case 8:
-            r = Double((value >> 24) & 0xFF) / 255.0
-            g = Double((value >> 16) & 0xFF) / 255.0
-            b = Double((value >> 8) & 0xFF) / 255.0
-            a = Double(value & 0xFF) / 255.0
-        default:
-            r = 0.0
-            g = 0.0
-            b = 0.0
-            a = 1.0
-        }
-
-        self.init(.sRGB, red: r, green: g, blue: b, opacity: a)
+    let r, g, b, a: Double
+    switch sanitized.count {
+    case 6:
+        r = Double((value >> 16) & 0xFF) / 255.0
+        g = Double((value >> 8) & 0xFF) / 255.0
+        b = Double(value & 0xFF) / 255.0
+        a = 1.0
+    case 8:
+        r = Double((value >> 24) & 0xFF) / 255.0
+        g = Double((value >> 16) & 0xFF) / 255.0
+        b = Double((value >> 8) & 0xFF) / 255.0
+        a = Double(value & 0xFF) / 255.0
+    default:
+        r = 0.0
+        g = 0.0
+        b = 0.0
+        a = 1.0
     }
+
+    return Color(.sRGB, red: r, green: g, blue: b, opacity: a)
 }
 

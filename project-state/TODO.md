@@ -28,6 +28,13 @@ Updated: 2026-07-18
 
 | ID | Task | Completed in | Notes |
 |---|---|---|---|
+| T-201 | Cache Color values in Palette (precompute once, custom Codable) | 2026-07-20 | Eliminated per-access Scanner allocations during rendering. Colors stored as Palette stored properties, hex strings used only for Codable serialization. |
+| T-202 | Replace fireField 2D array with flat [Double] buffer | 2026-07-20 | Single allocation with manual index math. 0 allocations per frame vs 46. |
+| T-203 | Add .drawingGroup() to MatrixRain Canvas | 2026-07-20 | Matches pattern used by CRT scanline and backdrop grid. |
+| T-204 | Replace String(format:) with interpolation in hot loops | 2026-07-20 | chatterLines, codeLine, statusLines use native interpolation + pad2/pad2Hex helpers. |
+| T-205 | Debounce persistence writes (0.3s) | 2026-07-20 | Cancellable Task in DashboardStore replaces synchronous write-on-every-mutation. |
+| T-206 | Guard scroll-to-bottom on actual phase change | 2026-07-20 | BottomLeftPane avoids wasted layout passes. |
+| T-207 | Remove dead code | 2026-07-20 | Removed waveformValues, simulatedLogLine, hexStream, glyphStream, dashboardPanelStyle. Kept asciiBar/asciiMeter (tested). |
 | T-101 | Merge CLAUDE.md into AGENTS.md | 2026-07-18 | Deleted CLAUDE.md. Merged architecture file breakdown, build/run instructions, coordinate system, performance conventions, and key constraints into AGENTS.md. |
 | T-102 | Add project-state agent workflow | 2026-07-18 | Created `project-state/` directory with PROJECT_CONTEXT.md, ASSUMPTIONS.md, TODO.md, DECISIONS.md. Replaced AGENTS.md with process-oriented format. |
 | T-103 | Trim README.md to install/run/usage only | 2026-07-18 | Removed architecture descriptions, layout modes section, theme listing, widget listing, and non-goals. Kept only requirements, run instructions, and how-to-use guide with 6 themes listed. |
@@ -37,7 +44,7 @@ Updated: 2026-07-18
 | T-107 | Implement DashboardStore state manager | 2026-06-15 | `@MainActor ObservableObject` with `@Published state` and `persistenceMessage`. Theme management via `setTheme()` / `cycleTheme()` with synchronous persist. |
 | T-108 | Build MatrixRain widget | 2026-06-15 | Full-screen matrix rain animation using `TimelineView(.animation(minimumInterval: 0.05))` and `Canvas` with configurable columns/speed/brightness. |
 | T-109 | Add CRT scanline and backdrop grid effects | 2026-06-15 | `CRTScanlineOverlay` (Canvas-drawn 1px lines at 4px spacing, `.drawingGroup()`), `DashboardBackdropGrid` (12×8 Canvas grid with accent scanline). |
-| T-110 | Add WidgetSupport helpers | 2026-06-15 | Shared rendering: `waveformValues`, `simulatedLogLine`, `hexStream`, `glyphStream`, `asciiBar`, `asciiMeter`, `matrixGlyph`, `tuiBar`, `tuiMeter`, `tuiDivider`, `glowingText`, `crtGlow`. |
+| T-110 | Add WidgetSupport helpers | 2026-06-15 | Shared rendering: `waveformValues`, `simulatedLogLine`, `hexStream`, `glyphStream`, `asciiBar`, `asciiMeter`, `tuiBar`, `tuiMeter`, `tuiDivider`, `glowingText`, `crtGlow`. |
 | T-111 | Set up Swift Testing framework with 5 tests | 2026-06-15 | Unit tests covering state round-trip, store init with default theme, ASCII shape helpers, TUI shape helpers, and theme count (6). |
 | T-112 | Add CI with Release Please | 2026-06-15 | GitHub Actions workflow (`release-please.yml`) running on push to `main`. |
 | T-113 | Add htop-style process panel | 2026-06-15 | CPU usage simulator in `TopTerminalPane` with load averages and process listing. |

@@ -2,6 +2,18 @@
 
 Record decisions under the date they were made. If a later decision supersedes an earlier one, add the newer entry under its own date rather than editing history in place.
 
+## 2026-07-20 (file split and testability refactor)
+
+- **Split `TerminalPanes.swift` (388 lines) into 6 focused files.** `TopTerminalPane.swift` (top pane + load/breach/chatter generators), `BottomLeftPane.swift` (pseudo-code stream + `codeLine` generator), `BottomRightPane.swift` (doom fire pane), `FireSimulation.swift` (fire math: `fireField`, `doomDecay`, `fireBand`, `fireBandColor`), `PaneFrame.swift` (shared chrome wrapper). One concern per file.
+- **Extract overlay views into `UI/Overlays/`.** `CRTScanlineOverlay`, `EdgeVignetteOverlay`, `ChromaticEdgeFringe`, `DashboardBackdropGrid` each in their own file.
+- **Remove `ContentView` bridge wrapper.** `DashboardShellView` now reads the store directly via `@EnvironmentObject`, eliminating a 3-line indirection.
+- **Delete `WidgetChromeHelpers.swift`.** Was a dead 2-line file (`import SwiftUI` only) after the previous dead-code removal.
+- **Make data generators internal (not `private`).** All `simulatedLoadAverages`, `breachTracks`, `chatterLines`, `codeLine`, `fireField`, `doomDecay`, `fireBand`, `fireBandColor`, and helpers are now module-internal. Tests can access them via `@testable import`.
+- **Extract magic numbers to named constants.** `breachTrackCount`, `chatterDisplayLimit`, `codeRowCount`, `minColumns`/`minRows`/`cellSizeDivisor`, grid `columns`/`rows`/`scanlineYRatio` — all as private static properties on their respective types.
+- **Fix `fireBandColor` to use theme colors.** Bands 5–6 now use `theme.accent` and `theme.primary` instead of hardcoded `.white`. Fire hue shifts with theme.
+- **Add `assertionFailure` to `hexToColor`.** Malformed hex strings now trap in debug builds instead of silently returning black.
+- **Grow test suite from 5 to 20 tests.** Added: `storeCycleThemeWrapsAround`, `storePersistenceRoundTrips`, `storeFallsBackWhenSavedThemeMissing`, `fmt2FormatsWithTwoDecimals`, `pad2ZeroPadsSingleDigit`, `hexNibbleProducesUppercaseHex`, `pad4HexProducesFourDigitHex`, `simulatedLoadAveragesAreWithinRange`, `breachTracksProducesCorrectCount`, `chatterLinesProducesCorrectCount`, `codeLineProducesValidSyntax`, `lineColorMapsIndexToThemeColors`, `fireFieldProducesCorrectDimensions`, `fireFieldValuesAreWithinRange`, `fireFieldBottomRowHasFire`, `fireFieldTopRowCoolsDown`, `doomDecayIsAlwaysPositive`, `fireBandBucketsCorrectly`, `fireBandColorHotBandsUseThemeAccent`.
+
 ## 2026-07-20 (performance optimization round)
 
 - **Precompute `Color` values in `Palette` as stored properties.** Colors are computed once on init via `hexToColor()`, stored alongside hex strings. Custom `Codable` only encodes/decodes hex strings; custom `Hashable`/`Equatable` compare hex values only. Eliminates per-access `Scanner` allocations that occurred on every computed color property read during rendering.

@@ -1,8 +1,10 @@
 # Project Context
 
-Updated: 2026-07-18
+Updated: 2026-07-20
 
-Latest fix: added opencode.json with sourcekit-lsp LSP configuration for Swift files.
+Latest fix: perf — cached Color values in Palette (precomputed once, removed per-access Scanner allocations), replaced fireField 2D array with flat [Double] buffer (0 allocations per frame vs 46), added .drawingGroup() to MatrixRain Canvas, replaced String(format:) with string interpolation in hot render loops (chatterLines, codeLine, statusLines), debounced persistence writes (0.3s), optimized scroll-to-bottom guard, removed dead code (waveformValues, simulatedLogLine, hexStream, glyphStream, dashboardPanelStyle).
+
+Previous fix: added opencode.json with sourcekit-lsp LSP configuration for Swift files.
 
 Latest fix: replaced AGENTS.md with a process-oriented workflow format (before/during/finish checklist) and added `project-state/` directory with 4 tracking files (PROJECT_CONTEXT.md, ASSUMPTIONS.md, TODO.md, DECISIONS.md).
 
@@ -35,19 +37,19 @@ A theme cycle button sits top-right calling `store.cycleTheme()`.
 
 6 themes via `DashboardThemes.all`: classic-green-terminal (default), amber-crt, ice-blue, red-alert, phosphor-white, cyberpunk-neon.
 
-Each has a `Palette` of 7 hex color tokens (`primaryHex`, `secondaryHex`, `accentHex`, `backgroundHex`, `surfaceHex`, `textHex`, `glowHex`) plus `glowIntensity`. Computed `scanlineIntensity = 0.03 + (palette.glowIntensity × 0.035)`. All typography is monospaced (`.system(.headline, design: .monospaced)` / `.system(.body, design: .monospaced)`). Theme `id` is the stable key; views read the active theme from `DashboardStore.activeTheme`.
+Each has a `Palette` with 7 hex color tokens (`primaryHex`, `secondaryHex`, ...) plus `glowIntensity`. `Color` values are precomputed once on `Palette` init (stored properties, not computed) — custom `Codable` encodes only hex strings, `Hashable`/`Equatable` compare hex values only. Computed `scanlineIntensity = 0.045 + (palette.glowIntensity × 0.040)`. All typography is monospaced (`.system(.headline, design: .monospaced)` / `.system(.body, design: .monospaced)`). Theme `id` is the stable key; views read the active theme from `DashboardStore.activeTheme`.
 
 ### Persistence
 
-`DashboardPersistence` reads/writes `DashboardState` as pretty-printed sorted-key JSON to `ApplicationSupport/TotallyNotHacking/dashboard-state.json`. The `live()` factory creates the directory if needed. Writes are synchronous on every mutation (not debounced).
+`DashboardPersistence` reads/writes `DashboardState` as pretty-printed sorted-key JSON to `ApplicationSupport/TotallyNotHacking/dashboard-state.json`. The `live()` factory creates the directory if needed. Writes are debounced (0.3s) via cancellable `Task` — rapid theme cycles coalesce into a single write.
 
 ### Widget System
 
 Currently minimal — only `MatrixRainWidgetView` exists as a standalone view (no `DashboardWidget` protocol yet, no `WidgetRegistry`, no per-widget subdirectories). `WidgetSupport.swift` provides shared helpers used across the UI:
 
 - ASCII graphics: `asciiBar(level:width:filled:empty:)`, `asciiMeter(level:width:head:)`, `matrixGlyph(at:phase:)`, `tuiBar`, `tuiMeter`, `tuiDivider`
-- Data generation: `waveformValues(count:phase:seed:amplitude:)`, `simulatedLogLine(prefix:index:phase:)`, `hexStream(seed:rows:columns:phase:)`, `glyphStream(for:)`
 - View modifiers: `glowingText(theme:)`, `crtGlow`
+- Removed dead code: `waveformValues`, `simulatedLogLine`, `hexStream`, `glyphStream` (unused in views)
 
 ### Testing
 
@@ -66,12 +68,12 @@ Currently minimal — only `MatrixRainWidgetView` exists as a standalone view (n
 - `Totally_Not_HackingApp.swift`: `@main` entry point — creates `DashboardStore` with `DashboardPersistence.live()`, injects as `@EnvironmentObject` into `ContentView`.
 - `Core/DashboardModels.swift`: `DashboardState` (Codable, Hashable) with `activeThemeID`.
 - `Core/DashboardPersistence.swift`: JSON file read/write with `live()` factory.
-- `Core/DashboardStore.swift`: Central `@MainActor ObservableObject` — theme management, cycle, persistence.
-- `Core/DashboardTheme.swift`: `DashboardTheme`, `Palette` (7 color tokens), 6 built-in themes, `Color(hex:)` extension (6-digit and 8-digit hex).
+- `Core/DashboardStore.swift`: Central `@MainActor ObservableObject` — theme management, cycle, debounced persistence (0.3s via cancellable Task).
+- `Core/DashboardTheme.swift`: `DashboardTheme`, `Palette` (7 color tokens + precomputed Color stored props + custom Codable), 6 built-in themes, private `hexToColor` helper.
 - `UI/DashboardShellView.swift`: 4-layer ZStack shell, `CRTScanlineOverlay`, `DashboardBackdropGrid`, theme cycle button.
-- `UI/TerminalPanes.swift`: `TopTerminalPane`, `BottomLeftPane`, `BottomRightPane` with load averages, pseudo-code stream, doom fire thermal viz.
+- `UI/TerminalPanes.swift`: `TopTerminalPane`, `BottomLeftPane`, `BottomRightPane` with load averages, pseudo-code stream, doom fire thermal viz (flat [Double] fireField, no per-frame array allocs).
 - `UI/WidgetChromeHelpers.swift`: `dashboardPanelStyle` view modifier for consistent inner panel styling.
-- `Widgets/MatrixRainWidget.swift`: Matrix rain animation — configurable columns/speed/brightness, `TimelineView(.animation(minimumInterval: 0.05))`, `Canvas`.
+- `Widgets/MatrixRainWidget.swift`: Matrix rain animation — configurable columns/speed/brightness, `TimelineView(.animation(minimumInterval: 0.04))`, `Canvas` with `.drawingGroup()`.
 - `Widgets/WidgetSupport.swift`: Shared ASCII/CRT rendering helpers and view modifiers.
 - `Totally_Not_HackingTests/Totally_Not_HackingTests.swift`: 5 Swift Testing tests.
 - `Totally_Not_HackingUITests/Totally_Not_HackingUITests.swift`: XCTest launch test template.

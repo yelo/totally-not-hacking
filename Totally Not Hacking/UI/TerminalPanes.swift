@@ -73,8 +73,9 @@ struct TopTerminalPane: View {
         let mem = 0.45 + 0.25 * sin(phase * 0.7)
         let threads = 180 + Int(sin(phase * 0.5) * 40)
 
+        let loadStr = "\(fmt2(loads.0))  \(fmt2(loads.1))  \(fmt2(loads.2))"
         return VStack(alignment: .leading, spacing: 2) {
-            Text("load avg: \(String(format: "%.2f", loads.0))  \(String(format: "%.2f", loads.1))  \(String(format: "%.2f", loads.2))")
+            Text("load avg: \(loadStr)")
             HStack(spacing: 4) {
                 Text("mem  \(tuiBar(level: mem, width: 24))")
                 Text("\(Int(mem * 100))%")
@@ -129,6 +130,13 @@ struct TopTerminalPane: View {
 
 // MARK: - Top Pane Data Generators
 
+private func fmt2(_ value: Double) -> String {
+    let i = Int(value * 100 + 0.5)
+    let whole = i / 100
+    let frac = i % 100
+    return "\(whole).\(frac < 10 ? "0" : "")\(frac)"
+}
+
 private func simulatedLoadAverages(phase: Double) -> (Double, Double, Double) {
     let one = 0.8 + sin(phase * 0.4) * 0.6 + cos(phase * 0.73) * 0.3
     let five = 0.7 + sin(phase * 0.35 + 1) * 0.5
@@ -174,10 +182,23 @@ private func chatterLines(phase: Double) -> [String] {
         let sector = sectors[(i * 5 + Int(phase * 2)) % sectors.count]
         let action = actions[(i * 7 + Int(phase * 3)) % actions.count]
         let delta = 12 + Int(phase * 17 + Double(i) * 23) % 89
-        let crc = String(format: "%04X", (Int(phase * 9973) + i * 7919) & 0xFFFF)
-        return String(format: "[%02d:%02d:%02d] %@ %@ @SECTOR-%@ :: %@ // DELTA %d%% // CRC %@",
-                      h, m, s, verb, noun, sector, action, delta, crc)
+        let crcVal = (Int(phase * 9973) + i * 7919) & 0xFFFF
+        return "[\(pad2(h)):\(pad2(m)):\(pad2(s))] \(verb) \(noun) @SECTOR-\(sector) :: \(action) // DELTA \(delta)% // CRC \(pad4Hex(crcVal))"
     }
+}
+
+private func pad2(_ value: Int) -> String {
+    value < 10 ? "0\(value)" : "\(value)"
+}
+
+private func pad4Hex(_ value: Int) -> String {
+    let h = (value >> 8) & 0xFF
+    let l = value & 0xFF
+    return "\(hexNibble(h >> 4))\(hexNibble(h & 0xF))\(hexNibble(l >> 4))\(hexNibble(l & 0xF))"
+}
+
+private func hexNibble(_ n: Int) -> String {
+    n < 10 ? "\(n)" : String(Character(UnicodeScalar(65 + n - 10)!))
 }
 
 // MARK: - Bottom-Left Pane (Scrolling Code)
@@ -203,8 +224,10 @@ struct BottomLeftPane: View {
                         }
                         .padding(.vertical, 2)
                     }
-                    .onChange(of: phase) { _, _ in
-                        scrollProxy.scrollTo(59, anchor: .bottom)
+                    .onChange(of: phase) { oldPhase, newPhase in
+                        if oldPhase != newPhase {
+                            scrollProxy.scrollTo(59, anchor: .bottom)
+                        }
                     }
                 }
             }
@@ -233,7 +256,7 @@ private func codeLine(index: Int, phase: Int) -> String {
 
     switch sel {
     case 0:  return "\(indent)func \(fn)(_ source: GridNode, mode: .\(mode)) async throws -> PulseStream {"
-    case 1:  return "\(indent)let \(vr) = xor(routeTable, salt: 0x\(String(format: "%02X", num)), tag: \"\(tag)\")"
+    case 1:  return "\(indent)let \(vr) = xor(routeTable, salt: 0x\(pad2Hex(num)), tag: \"\(tag)\")"
     case 2:  return "\(indent)guard \(vr).entropy > 50, !routeTable.isCompromised else { throw BreachError.cascade(\"\(tag)\") }"
     case 3:  return "\(indent)for node in \(vr).activeNodes where node.priority \(op) 3 != 0 {"
     case 4:  return "\(indent)    await node.dispatch(payload: shadowPacket, via: .\(mode))"
@@ -246,6 +269,11 @@ private func codeLine(index: Int, phase: Int) -> String {
     case 11: return "\(indent)}"
     default: return "\(indent)}"
     }
+}
+
+private func pad2Hex(_ value: Int) -> String {
+    let v = value & 0xFF
+    return "\(hexNibble(v >> 4))\(hexNibble(v & 0xF))"
 }
 
 private func lineColor(index: Int, theme: DashboardTheme) -> Color {
@@ -277,8 +305,9 @@ struct BottomRightPane: View {
                         // Batch rects into 7 color bands — one fill per band
                         var paths: [Int: Path] = [:]
                         for r in 0..<rows {
+                            let rowOffset = r * cols
                             for c in 0..<cols {
-                                let intensity = field[r][c]
+                                let intensity = field[rowOffset + c]
                                 guard intensity > 0.015 else { continue }
                                 let band = fireBand(intensity)
                                 let rect = CGRect(x: CGFloat(c) * cellW, y: CGFloat(r) * cellH,
@@ -296,30 +325,29 @@ struct BottomRightPane: View {
     }
 }
 
-private func fireField(cols: Int, rows: Int, phase: Double) -> [[Double]] {
-    var field = Array(repeating: Array(repeating: 0.0, count: cols), count: rows)
+private func fireField(cols: Int, rows: Int, phase: Double) -> [Double] {
+    let count = rows * cols
+    var field = [Double](repeating: 0.0, count: count)
 
-    // Bottom row: intense heat with organic variation — the flame source
+    let lastRowStart = (rows - 1) * cols
     for c in 0..<cols {
         let x = Double(c)
-        // Broad heat base with column-to-column variation
         let base = 0.55 + sin(x * 0.07 + phase * 0.4) * 0.25
                     + sin(x * 0.13 + phase * 0.6) * 0.15
                     + cos(x * 0.19 - phase * 0.5) * 0.10
-        // Fast flicker per column
         let flicker = sin(x * 2.3 + phase * 4.7) * 0.08 + cos(x * 3.1 + phase * 5.9) * 0.06
-        field[rows - 1][c] = min(1.0, max(0.1, base + flicker))
+        field[lastRowStart + c] = min(1.0, max(0.1, base + flicker))
     }
 
-    // Classic Doom fire propagation: average of 3 below, minus tiny decay
     for r in (0..<(rows - 1)).reversed() {
+        let currentRowStart = r * cols
+        let nextRowStart = (r + 1) * cols
         for c in 0..<cols {
-            var sum = field[r + 1][c]
-            if c > 0 { sum += field[r + 1][c - 1] }
-            if c < cols - 1 { sum += field[r + 1][c + 1] }
-            // Tiny pseudo-random decay — drives the flicker without killing the flame
+            var sum = field[nextRowStart + c]
+            if c > 0 { sum += field[nextRowStart + c - 1] }
+            if c < cols - 1 { sum += field[nextRowStart + c + 1] }
             let decay = 0.015 + doomDecay(row: r, col: c, phase: phase) * 0.04
-            field[r][c] = max(0, sum / 3.0 - decay)
+            field[currentRowStart + c] = max(0, sum / 3.0 - decay)
         }
     }
 

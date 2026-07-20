@@ -13,7 +13,7 @@ struct Totally_Not_HackingApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            DashboardShellView()
                 .environmentObject(store)
         }
     }

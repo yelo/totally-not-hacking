@@ -2,17 +2,9 @@
 
 Updated: 2026-07-20
 
-Latest fix: perf — cached Color values in Palette (precomputed once, removed per-access Scanner allocations), replaced fireField 2D array with flat [Double] buffer (0 allocations per frame vs 46), added .drawingGroup() to MatrixRain Canvas, replaced String(format:) with string interpolation in hot render loops (chatterLines, codeLine, statusLines), debounced persistence writes (0.3s), optimized scroll-to-bottom guard, removed dead code (waveformValues, simulatedLogLine, hexStream, glyphStream, dashboardPanelStyle).
+Latest fix: refactor — split `TerminalPanes.swift` (388 lines) into `TopTerminalPane.swift`, `BottomLeftPane.swift`, `BottomRightPane.swift`, `FireSimulation.swift`, and `PaneFrame.swift`. Extracted overlay views into `UI/Overlays/`. Removed `WidgetChromeHelpers.swift` (empty dead file) and `ContentView` bridge wrapper. Made data generators internal for testability. Extracted magic numbers to named constants. Fixed `fireBandColor` to use theme accent/primary instead of hardcoded `.white`. Added `assertionFailure` on malformed hex in `hexToColor`. Grew test suite from 5 to 20 tests covering store cycle/persistence, data generators, and fire simulation.
 
-Previous fix: added opencode.json with sourcekit-lsp LSP configuration for Swift files.
-
-Latest fix: replaced AGENTS.md with a process-oriented workflow format (before/during/finish checklist) and added `project-state/` directory with 4 tracking files (PROJECT_CONTEXT.md, ASSUMPTIONS.md, TODO.md, DECISIONS.md).
-
-Latest fix: merged CLAUDE.md into AGENTS.md for tool-agnostic agent configuration. Single source of truth for all agent tools — includes file-by-file architecture breakdown, build/run instructions, coordinate system, and key constraints.
-
-Latest fix: trimmed README.md to install/run/usage only (down from 68 to 24 lines). Removed architecture descriptions, widget listings, and layout mode docs.
-
-Previous fix: complete TUI overhaul — replaced the earlier layout with a fixed 4-layer ZStack (MatrixRain background, CRT scanlines, backdrop grid, 3 content panes).
+Previous fix: perf — cached Color values in Palette (precomputed once, removed per-access Scanner allocations), replaced fireField 2D array with flat [Double] buffer (0 allocations per frame vs 46), added .drawingGroup() to MatrixRain Canvas, replaced String(format:) with string interpolation in hot render loops, debounced persistence writes (0.3s), optimized scroll-to-bottom guard, removed dead code.
 
 ## Current State
 
@@ -20,69 +12,49 @@ The app is an iPadOS SwiftUI dashboard that simulates movie-style hacker interfa
 
 ### Rendering Pipeline
 
-`DashboardShellView` builds a 4-layer ZStack:
+`DashboardShellView` builds a 5-layer ZStack:
 
 1. **Background:** `MatrixRainWidgetView` full-screen animation, `.ignoresSafeArea()`, `.allowsHitTesting(false)`
 2. **CRT effect:** `CRTScanlineOverlay` — Canvas-drawn alternating 1px dark lines at 4px spacing, `.drawingGroup()`
-3. **Grid:** `DashboardBackdropGrid` — 12×8 Canvas grid with horizontal accent scanline at 4–6% opacity
-4. **Content:** 3 fixed panes — `TopTerminalPane` (44% height) + HStack of `BottomLeftPane` / `BottomRightPane` (54% height)
+3. **Grid:** `DashboardBackdropGrid` — 12×8 Canvas grid with horizontal accent scanline
+4. **Overlays:** `EdgeVignetteOverlay` (radial gradient) + `ChromaticEdgeFringe` (red/blue edge lines)
+5. **Content:** 3 fixed panes — `TopTerminalPane` (44% height) + HStack of `BottomLeftPane` / `BottomRightPane` (54% height)
 
 A theme cycle button sits top-right calling `store.cycleTheme()`.
 
 ### State Management
 
-`DashboardStore`: `@MainActor final class`, `ObservableObject`. Owns `@Published var state: DashboardState` (Codable struct with `activeThemeID: String`) and `@Published var persistenceMessage: String?`. On init, tries `persistence.load()` — falls back to default state with first theme. `setTheme()` / `cycleTheme()` mutate state and persist synchronously.
+`DashboardStore`: `@MainActor final class`, `ObservableObject`. Owns `@Published var state: DashboardState` (Codable struct with `activeThemeID: String`). On init, tries `persistence.load()` — falls back to default state with first theme. Falls back when persisted theme ID is missing from the registry. Persisted writes are debounced (0.3s) via cancellable `Task`.
 
 ### Themes
 
 6 themes via `DashboardThemes.all`: classic-green-terminal (default), amber-crt, ice-blue, red-alert, phosphor-white, cyberpunk-neon.
 
-Each has a `Palette` with 7 hex color tokens (`primaryHex`, `secondaryHex`, ...) plus `glowIntensity`. `Color` values are precomputed once on `Palette` init (stored properties, not computed) — custom `Codable` encodes only hex strings, `Hashable`/`Equatable` compare hex values only. Computed `scanlineIntensity = 0.045 + (palette.glowIntensity × 0.040)`. All typography is monospaced (`.system(.headline, design: .monospaced)` / `.system(.body, design: .monospaced)`). Theme `id` is the stable key; views read the active theme from `DashboardStore.activeTheme`.
+Each has a `Palette` with 7 hex color tokens + precomputed `Color` stored properties. Custom `Codable` encodes only hex strings. `Hashable`/`Equatable` compare hex values only.
 
 ### Persistence
 
-`DashboardPersistence` reads/writes `DashboardState` as pretty-printed sorted-key JSON to `ApplicationSupport/TotallyNotHacking/dashboard-state.json`. The `live()` factory creates the directory if needed. Writes are debounced (0.3s) via cancellable `Task` — rapid theme cycles coalesce into a single write.
-
-### Widget System
-
-Currently minimal — only `MatrixRainWidgetView` exists as a standalone view (no `DashboardWidget` protocol yet, no `WidgetRegistry`, no per-widget subdirectories). `WidgetSupport.swift` provides shared helpers used across the UI:
-
-- ASCII graphics: `asciiBar(level:width:filled:empty:)`, `asciiMeter(level:width:head:)`, `matrixGlyph(at:phase:)`, `tuiBar`, `tuiMeter`, `tuiDivider`
-- View modifiers: `glowingText(theme:)`, `crtGlow`
-- Removed dead code: `waveformValues`, `simulatedLogLine`, `hexStream`, `glyphStream` (unused in views)
-
-### Testing
-
-5 unit tests using Swift Testing (`@Test`, `#expect`):
-
-| Test | What it verifies |
-|---|---|
-| `dashboardStateRoundTrips()` | JSON encode/decode round trip preserves `activeThemeID` |
-| `storeInitializesWithDefaultTheme()` | Default theme is classicGreen, `themes.count == 6` |
-| `asciiHelpersProduceExpectedShapes()` | `asciiBar`, `asciiMeter`, `matrixGlyph` return expected strings |
-| `tuiHelpersProduceExpectedShapes()` | `tuiBar`, `tuiMeter`, `tuiDivider` return expected strings |
-| `themeCountIsSix()` | `DashboardThemes.all.count == 6` |
+`DashboardPersistence` reads/writes `DashboardState` as pretty-printed sorted-key JSON to `ApplicationSupport/TotallyNotHacking/dashboard-state.json`. Writes debounced (0.3s).
 
 ## Structure
 
-- `Totally_Not_HackingApp.swift`: `@main` entry point — creates `DashboardStore` with `DashboardPersistence.live()`, injects as `@EnvironmentObject` into `ContentView`.
+- `Totally_Not_HackingApp.swift`: `@main` entry point — creates `DashboardStore`, injects as `@EnvironmentObject` into `DashboardShellView`.
 - `Core/DashboardModels.swift`: `DashboardState` (Codable, Hashable) with `activeThemeID`.
 - `Core/DashboardPersistence.swift`: JSON file read/write with `live()` factory.
-- `Core/DashboardStore.swift`: Central `@MainActor ObservableObject` — theme management, cycle, debounced persistence (0.3s via cancellable Task).
-- `Core/DashboardTheme.swift`: `DashboardTheme`, `Palette` (7 color tokens + precomputed Color stored props + custom Codable), 6 built-in themes, private `hexToColor` helper.
-- `UI/DashboardShellView.swift`: 4-layer ZStack shell, `CRTScanlineOverlay`, `DashboardBackdropGrid`, theme cycle button.
-- `UI/TerminalPanes.swift`: `TopTerminalPane`, `BottomLeftPane`, `BottomRightPane` with load averages, pseudo-code stream, doom fire thermal viz (flat [Double] fireField, no per-frame array allocs).
-- `UI/WidgetChromeHelpers.swift`: `dashboardPanelStyle` view modifier for consistent inner panel styling.
-- `Widgets/MatrixRainWidget.swift`: Matrix rain animation — configurable columns/speed/brightness, `TimelineView(.animation(minimumInterval: 0.04))`, `Canvas` with `.drawingGroup()`.
+- `Core/DashboardStore.swift`: Central `@MainActor ObservableObject` — theme cycle, debounced persistence.
+- `Core/DashboardTheme.swift`: `DashboardTheme`, `Palette` (precomputed Colors + custom Codable), 6 built-in themes, `hexToColor` with malformed hex assertion.
+- `UI/DashboardShellView.swift`: 5-layer ZStack shell + theme cycle button. Reads store via `@EnvironmentObject`.
+- `UI/PaneFrame.swift`: Reusable pane chrome wrapper with header strip, border, and background.
+- `UI/TopTerminalPane.swift`: Load averages, breach tracks, chatter lines + data generators (`fmt2`, `simulatedLoadAverages`, `breachTracks`, `chatterLines`, `pad2`, `pad4Hex`, `hexNibble`).
+- `UI/BottomLeftPane.swift`: Auto-scrolling pseudo-code stream + `codeLine`, `pad2Hex`, `lineColor` generators.
+- `UI/BottomRightPane.swift`: Doom fire thermal visualization Canvas.
+- `UI/FireSimulation.swift`: `fireField`, `doomDecay`, `fireBand`, `fireBandColor` — all internal (testable). Hottest bands use theme colors.
+- `UI/Overlays/CRTScanlineOverlay.swift`: Animated scanline Canvas overlay.
+- `UI/Overlays/EdgeVignetteOverlay.swift`: Radial gradient vignette.
+- `UI/Overlays/ChromaticEdgeFringe.swift`: CRT chromatic aberration edge lines.
+- `UI/Overlays/DashboardBackdropGrid.swift`: 12×8 Canvas grid.
+- `Widgets/MatrixRainWidget.swift`: Matrix rain animation with Canvas + `.drawingGroup()`.
 - `Widgets/WidgetSupport.swift`: Shared ASCII/CRT rendering helpers and view modifiers.
-- `Totally_Not_HackingTests/Totally_Not_HackingTests.swift`: 5 Swift Testing tests.
+- `Totally_Not_HackingTests/Totally_Not_HackingTests.swift`: 20 Swift Testing tests (state round-trip, store init/cycle/persistence/fallback, helpers, data generators, fire simulation).
 - `Totally_Not_HackingUITests/Totally_Not_HackingUITests.swift`: XCTest launch test template.
 - `Totally_Not_HackingUITests/Totally_Not_HackingUITestsLaunchTests.swift`: XCTest launch screenshot test.
-- `opencode.json`: opencode configuration — enables sourcekit-lsp LSP for `.swift` files.
-- `AGENTS.md`: Agent operating instructions with before/during/finish workflow.
-- `project-state/`: Project context, assumptions, todo, decisions.
-- `README.md`: Install/run/usage only.
-- `Totally Not Hacking.xcodeproj`: Xcode project (no Package.swift or CLI tooling).
-- `.agents/skills/`: Reusable agent skills (conventional-commits, swiftui, swiftui-review).
-- `.github/workflows/release-please.yml`: CI — Release Please on push to `main`.
-- `.github/CODEOWNERS`: `@yelo` owns all files.

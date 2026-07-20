@@ -228,6 +228,7 @@ private func hexToColor(_ hex: String) -> Color {
         b = Double((value >> 8) & 0xFF) / 255.0
         a = Double(value & 0xFF) / 255.0
     default:
+        assertionFailure("Malformed hex color string: '\(hex)' (expected 6 or 8 hex digits)")
         r = 0.0
         g = 0.0
         b = 0.0
